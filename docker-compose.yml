@@ -1,0 +1,84 @@
+# Red Point services.
+#
+#   docker compose up -d                    postgres + redis only (local dev)
+#   docker compose --profile full up -d     plus the Medusa backend
+#
+# Local development runs Medusa with `pnpm --filter @redpoint/backend dev`
+# against the dockerised data services, because that keeps hot reload. The
+# `full` profile exists for the VPS, where Medusa runs as a container too.
+#
+# Everything is env-driven so the same file works on the SuperHosting managed
+# VPS. Copy .env.example to .env first.
+#
+# NOT YET VERIFIED: Docker is not installed on this machine, so nothing in this
+# file has ever been executed.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: redpoint-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-redpoint}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-redpoint}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-redpoint} -d ${POSTGRES_DB:-redpoint}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: redpoint-redis
+    restart: unless-stopped
+    # Medusa's worker and event bus both live here, so persistence is on.
+    command: redis-server --appendonly yes
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    profiles: ["full"]
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+    container_name: redpoint-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgres://${POSTGRES_USER:-redpoint}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-redpoint}
+      REDIS_URL: redis://redis:6379
+      MEDUSA_BACKEND_URL: ${MEDUSA_BACKEND_URL:-http://localhost:9000}
+      MEDUSA_WORKER_MODE: ${MEDUSA_WORKER_MODE:-shared}
+      STORE_CORS: ${STORE_CORS}
+      ADMIN_CORS: ${ADMIN_CORS}
+      AUTH_CORS: ${AUTH_CORS}
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
+      COOKIE_SECRET: ${COOKIE_SECRET:?set COOKIE_SECRET in .env}
+    ports:
+      - "9000:9000"
+    volumes:
+      # Product photography served by the local file provider. Swap for object
+      # storage in Phase 9 if the VPS gets any.
+      - backend-static:/app/apps/backend/static
+
+volumes:
+  postgres-data:
+  redis-data:
+  backend-static:

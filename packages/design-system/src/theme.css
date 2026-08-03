@@ -1,0 +1,149 @@
+/* ============================================================================
+   Red Point design tokens - single source of truth
+   ----------------------------------------------------------------------------
+   Extracted from g-star.com computed styles. The rationale for every value
+   lives in the design-system skill (.claude/skills/g-star-design-system/).
+   Read it before changing anything here.
+
+   This is a Tailwind v4 @theme block, so every token below is ALSO emitted as
+   a plain CSS custom property on :root. Components can use either the utility
+   (`bg-neutral`) or the variable (`var(--color-neutral)`).
+
+   Every default Tailwind namespace we do not want is reset to `initial` first.
+   That is deliberate: it makes `rounded-lg`, `shadow-md`, `bg-slate-500` and
+   `font-mono` fail to compile rather than silently ship off-brand.
+
+   Values marked [EXT] are documented extensions to the original extraction,
+   not part of it. Each one says why it exists.
+   ========================================================================== */
+
+@theme {
+  /* ==========================================================================
+     COLOR
+     Reset wipes Tailwind's entire default palette. Ten tokens, no more.
+     ====================================================================== */
+  --color-*: initial;
+
+  --color-primary: #000000; /* headlines, body text, nav, borders */
+  --color-secondary: #303030; /* dark surfaces, footer panels */
+  --color-accent: #c2311e; /* SALE / DISCOUNT SIGNAGE ONLY. Nowhere else. */
+  --color-neutral: #e4e6e7; /* product photography background, card fill */
+  --color-muted-text: #68737d; /* strikethrough RRP, secondary labels */
+  --color-body-text: #212529; /* sale price, running body copy */
+  --color-background: #ffffff; /* page base */
+  --color-surface: #f7f7f7; /* input fields, subtle panel fill */
+  --color-success: #0f8000; /* stock / availability confirmation */
+  --color-border: #696969; /* hairlines, muted dividers */
+
+  /* Kept because the system genuinely uses pure black and pure white. This is
+     the one place where the usual "never pure #000" advice does not apply:
+     g-star's identity is built on it. */
+  --color-white: #ffffff;
+  --color-black: #000000;
+
+  /* ==========================================================================
+     TYPOGRAPHY
+     ====================================================================== */
+  --font-*: initial;
+
+  /* Oswald and Inter arrive from next/font as --font-oswald and --font-inter
+     on <html>. DIN Pro and Gotham HCo are the licensed originals; if the
+     client buys them, add @font-face and move them to the front of these
+     stacks. Both webfonts must carry Cyrillic - the store sells in Bulgarian,
+     and a Latin-only condensed face drops every headline to a system fallback.
+     No monospace anywhere - it breaks the tone. */
+  --font-headline: var(--font-oswald), "DIN Pro", "Arial Narrow", Arial,
+    sans-serif;
+  --font-body: var(--font-inter), "Gotham HCo", Arial, Helvetica, sans-serif;
+
+  --text-*: initial;
+
+  /* Hero display [EXT]
+     The original extraction captured g-star's PLP category titles (32px) but
+     never their full-bleed campaign banners, so the system had no tier for a
+     viewport-height hero. Phase 3 needs one. Same face, same uppercase, same
+     weight - only the scale is new. Tracking eases off relative to the 32px
+     tier because condensed uppercase needs less letter-spacing as it grows. */
+  --text-hero: clamp(3.25rem, 11vw, 10.5rem);
+  --text-hero--line-height: 0.88;
+  --text-hero--letter-spacing: 0.01em;
+  --text-hero--font-weight: 700;
+
+  --text-display: 32px;
+  --text-display--line-height: 0.95;
+  --text-display--letter-spacing: 0.02em;
+  --text-display--font-weight: 700;
+
+  --text-subhead: 16px;
+  --text-subhead--line-height: 1.3;
+  --text-subhead--font-weight: 700;
+
+  --text-body: 13px;
+  --text-body--line-height: 1.4;
+
+  --text-nav: 14px;
+  --text-nav--line-height: 1.4;
+
+  /* 16px is also what stops iOS Safari zooming the viewport on focus. */
+  --text-input: 16px;
+  --text-input--line-height: 1.4;
+  --text-input--font-weight: 300;
+
+  --text-control: 14px;
+  --text-control--line-height: 1.4;
+  --text-control--font-weight: 600;
+
+  --text-price: 14px;
+  --text-price--line-height: 1.4;
+  --text-price--font-weight: 700;
+
+  --text-badge: 12px;
+  --text-badge--line-height: 1.2;
+  --text-badge--font-weight: 600;
+
+  /* ==========================================================================
+     RADIUS
+     Square everywhere. 1px is the ceiling, and only on interactive controls.
+     There is deliberately nothing larger to reach for.
+     ====================================================================== */
+  --radius-*: initial;
+  --radius-sharp: 1px;
+
+  /* ==========================================================================
+     ELEVATION
+     No shadows, ever. Depth comes from flat color blocks (--color-neutral
+     behind product photography) and from the photography itself.
+     ====================================================================== */
+  --shadow-*: initial;
+  --inset-shadow-*: initial;
+  --drop-shadow-*: initial;
+  --text-shadow-*: initial;
+
+  /* ==========================================================================
+     MOTION [EXT]
+     MOTION_INTENSITY 6: mask reveals, carousel drag, hover crossfade, nav
+     transition. Nothing else. One easing curve for the whole site so every
+     timing feels like one hand made it.
+     ====================================================================== */
+  --ease-*: initial;
+  --ease-brand: cubic-bezier(0.16, 1, 0.3, 1);
+
+  --duration-fast: 180ms;
+  --duration-base: 320ms;
+  --duration-slow: 640ms;
+
+  /* So a bare `transition` utility already uses the brand curve and timing
+     instead of Tailwind's 150ms/ease-in-out default. */
+  --default-transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  --default-transition-duration: 320ms;
+
+  /* ==========================================================================
+     LAYOUT
+     Tailwind's default --spacing (0.25rem) already lands exactly on the 8px
+     grid this system uses: p-2=8, p-4=16, p-6=24, p-8=32, p-12=48, p-16=64.
+     So it is kept rather than replaced.
+     ====================================================================== */
+  --container-page: 1400px;
+
+  --control-height: 40px;
+}

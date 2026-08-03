@@ -1,0 +1,177 @@
+/* G-Star-inspired design tokens — see ../SKILL.md for usage rules and rationale */
+
+:root {
+  /* Colors */
+  --color-primary: #000000;
+  --color-secondary: #303030;
+  --color-accent: #C2311E;      /* sale/discount signage only */
+  --color-neutral: #E4E6E7;
+  --color-muted-text: #68737D;
+  --color-body-text: #212529;
+  --color-background: #FFFFFF;
+  --color-surface: #F7F7F7;
+  --color-success: #0F8000;
+  --color-border: #696969;
+
+  /* Typography */
+  --font-headline: "DIN Pro", "Barlow Condensed", HelveticaNeue-CondensedBold, "Arial Narrow", Arial, sans-serif;
+  --font-body: "Gotham HCo", Arial, Helvetica, sans-serif;
+
+  --text-display-size: 32px;
+  --text-display-line-height: 0.95;
+  --text-display-tracking: 0.02em;
+
+  --text-subhead-size: 16px;
+  --text-subhead-line-height: 1.3;
+
+  --text-body-size: 13px;
+  --text-body-line-height: 1.4;
+
+  --text-nav-size: 14px;
+  --text-nav-line-height: 1.4;
+
+  --text-button-size: 14px;
+  --text-button-weight: 600;
+
+  --text-price-size: 14px;
+  --text-price-weight: 700;
+
+  --text-badge-size: 12px;
+  --text-badge-weight: 600;
+
+  /* Spacing (base unit 8px) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 16px;
+  --space-4: 24px;
+  --space-5: 32px;
+  --space-6: 48px;
+  --space-7: 64px;
+
+  --button-padding: 8px 16px;
+  --card-padding: 16px;
+  --section-spacing-mobile: 32px;
+  --section-spacing-desktop: 64px;
+
+  /* Border radius — square everywhere by design */
+  --radius: 1px;
+
+  /* Elevation — no shadows in this system; kept at 'none' intentionally */
+  --shadow: none;
+
+  /* Component heights */
+  --button-height: 40px;
+}
+
+/* Reference component classes — copy/adapt into the project's actual stylesheet */
+
+.btn-primary-on-white {
+  background: var(--color-primary);
+  color: var(--color-background);
+  border: none;
+  border-radius: var(--radius);
+  font-family: var(--font-body);
+  font-size: var(--text-button-size);
+  font-weight: var(--text-button-weight);
+  text-transform: lowercase;
+  height: var(--button-height);
+  padding: var(--button-padding);
+  box-shadow: var(--shadow);
+}
+
+.btn-primary-on-image {
+  background: transparent;
+  color: #FFFFFF;
+  border: 2px solid #FFFFFF;
+  border-radius: var(--radius);
+  font-family: var(--font-body);
+  font-size: var(--text-button-size);
+  font-weight: var(--text-button-weight);
+  text-transform: lowercase;
+  height: var(--button-height);
+  padding: var(--button-padding);
+}
+
+.btn-secondary {
+  background: transparent;
+  color: var(--color-primary);
+  border: 2px solid var(--color-primary);
+  border-radius: var(--radius);
+  font-family: var(--font-body);
+  font-size: var(--text-button-size);
+  font-weight: var(--text-button-weight);
+  text-transform: lowercase;
+  height: var(--button-height);
+  padding: var(--button-padding);
+}
+
+.sale-badge {
+  background: var(--color-accent);
+  color: #FFFFFF;
+  border: none;
+  border-radius: 0;
+  font-family: var(--font-body);
+  font-size: var(--text-badge-size);
+  font-weight: var(--text-badge-weight);
+  padding: 2px 8px;
+  display: inline-block;
+}
+
+.product-card {
+  background: var(--color-neutral);
+  border: none;
+  border-radius: 0;
+  box-shadow: var(--shadow);
+  padding: 0;
+}
+
+.price-sale {
+  font-family: var(--font-body);
+  font-size: var(--text-price-size);
+  font-weight: var(--text-price-weight);
+  color: var(--color-body-text);
+}
+
+.price-strikethrough {
+  font-family: var(--font-body);
+  font-size: var(--text-price-size);
+  font-weight: 600;
+  color: var(--color-muted-text);
+  text-decoration: line-through;
+}
+
+.input-field {
+  background: var(--color-surface);
+  border: none;
+  border-radius: 0;
+  font-family: var(--font-body);
+  font-size: 16px;
+  font-weight: 300;
+  color: var(--color-body-text);
+  padding: 12px 16px;
+}
+
+h1, h2, .text-display {
+  font-family: var(--font-headline);
+  font-size: var(--text-display-size);
+  line-height: var(--text-display-line-height);
+  letter-spacing: var(--text-display-tracking);
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+h3, .text-subhead {
+  font-family: var(--font-body);
+  font-size: var(--text-subhead-size);
+  line-height: var(--text-subhead-line-height);
+  font-weight: 700;
+  color: var(--color-border);
+}
+
+body, p, .text-body {
+  font-family: var(--font-body);
+  font-size: var(--text-body-size);
+  line-height: var(--text-body-line-height);
+  color: var(--color-primary);
+}

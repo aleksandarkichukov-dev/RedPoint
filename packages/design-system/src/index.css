@@ -1,0 +1,7 @@
+/* Single entry point for the storefront and any other Tailwind v4 consumer.
+   Import order matters: Tailwind first, then our theme resets and tokens,
+   then the base layer that uses them. */
+
+@import "tailwindcss";
+@import "./theme.css";
+@import "./base.css";

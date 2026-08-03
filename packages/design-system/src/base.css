@@ -1,0 +1,75 @@
+/* ============================================================================
+   Red Point base layer
+   ----------------------------------------------------------------------------
+   Element-level defaults so that plain markup already sits inside the design
+   system. Anything expressible as a token lives in theme.css, not here.
+   ========================================================================== */
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-primary);
+    font-family: var(--font-body);
+    font-size: var(--text-body);
+    line-height: var(--text-body--line-height);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Headlines are bold condensed uppercase so they read as stamped workwear
+     labels. Body copy never uses the condensed face. */
+  h1,
+  h2 {
+    font-family: var(--font-headline);
+    font-size: var(--text-display);
+    line-height: var(--text-display--line-height);
+    letter-spacing: var(--text-display--letter-spacing);
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--color-primary);
+  }
+
+  h3 {
+    font-family: var(--font-body);
+    font-size: var(--text-subhead);
+    line-height: var(--text-subhead--line-height);
+    font-weight: 700;
+    color: var(--color-border);
+  }
+
+  /* Hairlines are the only divider this system has. */
+  hr {
+    border: 0;
+    border-top: 1px solid var(--color-border);
+  }
+
+  /* A visible, square focus ring. Keyboard navigation through checkout is an
+     acceptance criterion, so this cannot be removed later for looks. */
+  :focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+    border-radius: 0;
+  }
+
+  ::selection {
+    background-color: var(--color-primary);
+    color: var(--color-background);
+  }
+}
+
+/* Motion budget collapses to nothing when the user asks for less. Everything
+   above MOTION_INTENSITY 3 has to survive this, so it is enforced globally
+   rather than per component. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
+  }
+}

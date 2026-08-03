@@ -1,0 +1,17 @@
+{
+  "name": "redpoint",
+  "private": true,
+  "version": "0.0.0",
+  "packageManager": "pnpm@11.20.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @redpoint/storefront dev",
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint",
+    "seed": "pnpm --filter @redpoint/backend seed",
+    "//typecheck": "catalog ships compiled types, so it has to build first",
+    "typecheck": "pnpm --filter @redpoint/catalog build && pnpm -r typecheck"
+  }
+}

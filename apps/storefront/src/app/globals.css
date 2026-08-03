@@ -1,0 +1,45 @@
+/* Tailwind is imported here, in the app, so its automatic source detection
+   roots at the storefront. The design system then resets Tailwind's default
+   namespaces and installs the Red Point tokens on top. */
+
+@import "tailwindcss";
+@import "@redpoint/design-system/theme.css";
+@import "@redpoint/design-system/base.css";
+
+/* Mask reveal: a line of type slides up from behind its own edge, as if it
+   were being stamped on. The only entrance animation on the site.
+
+   Reduced motion is already handled globally in the design system's base
+   layer, which clamps animation-duration to 1ms. Because the keyframe uses
+   `forwards`, that lands on the final state rather than leaving text hidden. */
+@layer components {
+  .mask-line {
+    display: block;
+    overflow: hidden;
+    /* Condensed uppercase descends below the box; without this the reveal
+       clips the bottom of letters like Ц and Щ. */
+    padding-bottom: 0.08em;
+  }
+
+  .mask-line > * {
+    display: block;
+    transform: translateY(105%);
+    animation: rp-mask-reveal var(--duration-slow) var(--ease-brand) forwards;
+  }
+}
+
+@keyframes rp-mask-reveal {
+  to {
+    transform: translateY(0);
+  }
+}
+
+/* Hero scroll cue: a short segment travelling down a hairline. */
+@keyframes rp-scroll-cue {
+  0% {
+    transform: translateY(-100%);
+  }
+  100% {
+    transform: translateY(300%);
+  }
+}

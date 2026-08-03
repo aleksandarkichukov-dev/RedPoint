@@ -1,0 +1,34 @@
+node_modules/
+.pnpm-store/
+
+# builds
+.next/
+out/
+dist/
+build/
+.medusa/
+
+# env
+.env
+.env.*
+!.env.example
+
+# scraper output: regenerable, and it is the client's live catalogue data.
+# The scraper source is the work; its output is not.
+seed/images/
+seed/products.json
+seed/reports/
+tools/scraper/.cache/
+
+# compiled shared package
+packages/catalog/dist/
+
+# os / editor
+.DS_Store
+Thumbs.db
+*.log
+.vscode/
+.idea/
+
+# claude local settings
+.claude/settings.local.json

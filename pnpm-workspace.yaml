@@ -1,0 +1,11 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+  - "tools/*"
+allowBuilds:
+  # tsx runs the scraper straight from TypeScript; esbuild is its compiler and
+  # needs its postinstall to fetch the platform binary.
+  esbuild: true
+  # next/image needs sharp to resize and re-encode product photography at build
+  # and request time. Without it Next falls back to unoptimised originals.
+  sharp: true
