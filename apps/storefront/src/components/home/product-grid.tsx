@@ -1,18 +1,20 @@
 import Link from "next/link";
 import { ProductCard } from "@/components/ui/product-card";
-import type { DemoProduct } from "@/lib/home";
+import { toCardProps, type StoreProduct } from "@/lib/catalog";
 
 export interface ProductGridProps {
   title: string;
-  products: DemoProduct[];
+  products: StoreProduct[];
   viewAll?: { label: string; href: string };
 }
 
 /**
- * Four across on desktop, two on mobile, matching the PLP spec from Phase 4 so
- * the home page and the listing pages stay one design rather than two.
+ * Four across on desktop, two on mobile, matching the PLP spec so the home page
+ * and the listing pages stay one design rather than two.
  */
 export function ProductGrid({ title, products, viewAll }: ProductGridProps) {
+  if (products.length === 0) return null;
+
   return (
     <section className="mx-auto flex w-full max-w-(--container-page) flex-col gap-6 px-4 py-8 md:px-8 md:py-16">
       <div className="flex items-end justify-between gap-4">
@@ -29,7 +31,7 @@ export function ProductGrid({ title, products, viewAll }: ProductGridProps) {
 
       <div className="grid grid-cols-2 gap-x-4 gap-y-8 lg:grid-cols-4">
         {products.map((product) => (
-          <ProductCard key={product.name} {...product} />
+          <ProductCard key={product.id} {...toCardProps(product)} />
         ))}
       </div>
     </section>

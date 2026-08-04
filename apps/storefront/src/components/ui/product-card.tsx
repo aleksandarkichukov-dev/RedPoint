@@ -5,10 +5,21 @@ import { WishlistButton } from "@/components/ui/wishlist-button";
 import { cn } from "@/lib/cn";
 import { discountPercent, formatBgn, formatEur } from "@/lib/price";
 
+/**
+ * A colour swatch.
+ *
+ * The old site publishes no colour value anywhere, only a numeric id and a set
+ * of photographs, so a real hex is not available for migrated products and
+ * `Цвят 25` is the best name there is until the client renames them. A thumbnail
+ * of that colour's own photography says more than a grey square would, so
+ * `image` wins when present and `hex` is the fallback for anything the client
+ * later defines by colour rather than by picture.
+ */
 export interface ProductColor {
   id: string;
   name: string;
-  hex: string;
+  hex?: string;
+  image?: string;
 }
 
 export interface ProductCardProps {
@@ -109,15 +120,26 @@ export function ProductCard({
           )}
         </p>
 
-        {colors.length > 0 && (
+        {colors.length > 1 && (
           <ul className="flex items-center gap-2" aria-label="Налични цветове">
             {visibleColors.map((color) => (
               <li key={color.id}>
-                <span
-                  className="block size-3 border border-border"
-                  style={{ backgroundColor: color.hex }}
-                  title={color.name}
-                />
+                {color.image ? (
+                  <span className="relative block size-6 overflow-hidden bg-neutral">
+                    <Image
+                      src={color.image}
+                      alt=""
+                      fill
+                      sizes="24px"
+                      className="object-cover"
+                    />
+                  </span>
+                ) : (
+                  <span
+                    className="block size-3 border border-border"
+                    style={{ backgroundColor: color.hex ?? "transparent" }}
+                  />
+                )}
                 <span className="sr-only">{color.name}</span>
               </li>
             ))}

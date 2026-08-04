@@ -6,8 +6,11 @@ const nextConfig: NextConfig = {
   transpilePackages: ["@redpoint/design-system"],
   images: {
     remotePatterns: [
-      // Placeholder photography for the design-system gallery only.
-      // Remove once Phase 1 has seeded real product images.
+      // Product photography, served by Medusa's local file provider. On the VPS
+      // this becomes the real host or an object-storage domain.
+      { protocol: "http", hostname: "localhost", port: "9000" },
+      // Placeholder photography for the design-system gallery and the editorial
+      // parts of the home page that have no product behind them.
       { protocol: "https", hostname: "picsum.photos" },
     ],
   },

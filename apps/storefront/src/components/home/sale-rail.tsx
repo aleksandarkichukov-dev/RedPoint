@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { ProductCard } from "@/components/ui/product-card";
-import type { DemoProduct } from "@/lib/home";
+import { toCardProps, type StoreProduct } from "@/lib/catalog";
 
 export interface SaleRailProps {
   title: string;
-  products: DemoProduct[];
+  products: StoreProduct[];
   viewAll: { label: string; href: string };
 }
 
@@ -19,6 +19,8 @@ export interface SaleRailProps {
  * genuine reduction. That is the only red on the page.
  */
 export function SaleRail({ title, products, viewAll }: SaleRailProps) {
+  if (products.length === 0) return null;
+
   return (
     <section className="flex flex-col gap-6 py-8 md:py-16">
       <div className="mx-auto flex w-full max-w-(--container-page) items-end justify-between gap-4 px-4 md:px-8">
@@ -34,10 +36,10 @@ export function SaleRail({ title, products, viewAll }: SaleRailProps) {
       <ul className="flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-smooth px-4 scroll-pl-4 md:px-8 md:scroll-pl-8 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {products.map((product) => (
           <li
-            key={product.name}
+            key={product.id}
             className="w-[58vw] shrink-0 snap-start sm:w-[34vw] lg:w-[21vw] xl:w-[17rem]"
           >
-            <ProductCard {...product} />
+            <ProductCard {...toCardProps(product)} />
           </li>
         ))}
       </ul>

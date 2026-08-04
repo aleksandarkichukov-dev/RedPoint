@@ -65,11 +65,20 @@ function extractMaterial(description: string): string | null {
   return parts.map((part) => part.replace(/\s+/g, "")).join(", ");
 }
 
+/**
+ * Slugs stay in Cyrillic, as the old site's URLs are.
+ *
+ * Deliberately no NFD-and-strip-combining-marks step. That is the standard way
+ * to fold Latin diacritics (é to e), but applied to Bulgarian it destroys
+ * letters: й decomposes to и plus a combining breve, so "кройка" came out as
+ * "кроика" on 13 of 97 products. й and ё are letters here, not accents. NFC
+ * keeps them composed, and the character class below drops everything that is
+ * neither Latin, Cyrillic nor a digit anyway.
+ */
 function slugify(value: string): string {
   return value
     .toLowerCase()
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
+    .normalize("NFC")
     .replace(/[^a-z0-9Ѐ-ӿ]+/g, "-")
     .replace(/^-+|-+$/g, "");
 }
@@ -508,10 +517,12 @@ export async function parseProduct(
       externalId: link.externalId,
       /* Product names on the old site already end in the article number
          ("Дънки с декоративни кръпки и бели пръски 17487"), so appending it
-         unconditionally yields handles like `...-17487-17487`. It is still
-         appended when the name does not carry it, because the handle has to
-         stay unique. */
-      handle: slugify(name).endsWith(`-${sku}`)
+         unconditionally yields handles like `...-17487-17487`. Some names run
+         the number straight onto the last word ("...дизайн17452"), which is
+         why this matches the bare sku at the end and not only a separated one.
+         It is still appended when the name genuinely lacks it, because the
+         handle has to stay unique. */
+      handle: new RegExp(`${sku}$`).test(slugify(name))
         ? slugify(name)
         : `${slugify(name)}-${sku}`,
       name,
