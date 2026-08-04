@@ -1,7 +1,7 @@
 "use client";
 
 import type { InputHTMLAttributes } from "react";
-import { useId } from "react";
+import { forwardRef, useId } from "react";
 import { cn } from "@/lib/cn";
 
 export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
@@ -26,15 +26,10 @@ export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
  * has no border at all), a bold message below, and role="alert" - which also
  * means it never depends on colour alone.
  */
-export function Input({
-  label,
-  helper,
-  error,
-  className,
-  id,
-  tone = "default",
-  ...props
-}: InputProps) {
+export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
+  { label, helper, error, className, id, tone = "default", ...props },
+  ref,
+) {
   const inverted = tone === "inverted";
   const generatedId = useId();
   const inputId = id ?? generatedId;
@@ -55,6 +50,7 @@ export function Input({
       </label>
 
       <input
+        ref={ref}
         id={inputId}
         aria-invalid={error ? true : undefined}
         aria-describedby={describedBy}
@@ -92,4 +88,4 @@ export function Input({
       )}
     </div>
   );
-}
+});

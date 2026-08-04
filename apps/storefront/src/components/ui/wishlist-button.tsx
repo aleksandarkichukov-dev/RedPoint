@@ -36,8 +36,10 @@ export function WishlistButton({
         setPressed((current) => !current);
       }}
       className={cn(
-        "grid size-8 place-items-center text-primary",
-        "transition-transform duration-(--duration-fast) active:scale-90",
+        "grid size-11 place-items-center text-primary",
+        /* 0.97, not 0.9. Press feedback should register as the interface
+           acknowledging the tap, not as the icon shrinking away from it. */
+        "transition-transform duration-(--duration-fast) active:scale-[0.97]",
         className,
       )}
     >

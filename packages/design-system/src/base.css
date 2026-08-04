@@ -60,16 +60,25 @@
   }
 }
 
-/* Motion budget collapses to nothing when the user asks for less. Everything
-   above MOTION_INTENSITY 3 has to survive this, so it is enforced globally
-   rather than per component. */
+/* Reduced motion means less movement, not no feedback.
+
+   The usual blanket rule clamps every duration to 1ms, which also kills the
+   colour and opacity transitions that tell a user something responded: a
+   button's hover, a field's error stroke, an image crossfading to its second
+   shot. Those carry meaning and cause nobody motion sickness.
+
+   So this removes what moves - transforms, animations, smooth scrolling - and
+   leaves what merely changes. Anything that must not move under this setting
+   should animate transform, which is exactly what is switched off here. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
     animation-duration: 1ms !important;
+    animation-delay: 0ms !important;
     animation-iteration-count: 1 !important;
-    transition-duration: 1ms !important;
+    transition-property: opacity, color, background-color, border-color,
+      outline-color, fill, stroke !important;
     scroll-behavior: auto !important;
   }
 }

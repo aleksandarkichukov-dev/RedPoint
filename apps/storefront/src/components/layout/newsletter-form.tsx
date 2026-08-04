@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -15,6 +15,7 @@ export function NewsletterForm() {
   const [email, setEmail] = useState("");
   const [error, setError] = useState<string | undefined>();
   const [done, setDone] = useState(false);
+  const field = useRef<HTMLInputElement>(null);
 
   return (
     <div className="grid gap-8 py-12 md:grid-cols-[1fr_1fr] md:items-end md:gap-16">
@@ -38,6 +39,10 @@ export function NewsletterForm() {
             // more often than it catches typos.
             if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
               setError("Въведете валиден имейл адрес.");
+              // Focus follows the problem. On a phone the message can sit off
+              // screen, and leaving focus on the button makes a screen-reader
+              // user hunt for what went wrong.
+              field.current?.focus();
               return;
             }
             setError(undefined);
@@ -46,6 +51,7 @@ export function NewsletterForm() {
           className="flex flex-col gap-4 sm:flex-row sm:items-end"
         >
           <Input
+            ref={field}
             label="Имейл"
             type="email"
             name="email"

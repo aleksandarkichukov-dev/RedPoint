@@ -31,7 +31,16 @@ async function loadProducts(): Promise<{
     const saleCategory = await getCategoryByHandle("men-sale");
 
     const [newest, sale] = await Promise.all([
-      listProducts({ regionId, limit: 4, order: "-created_at" }),
+      /* Ordered by article number, not created_at. Every product was created
+         within seconds of the other during the seed, so created_at ranks them
+         at random while the section promises novelty. The shop's article
+         numbers do climb over time (16xxx before 17xxx), which makes them the
+         only signal of age the old site actually carries. All of them are five
+         digits, so a string sort matches a numeric one.
+
+         This is a stand-in. Ask the client whether the bulk module should carry
+         a real "new in" flag or date, and use that instead. */
+      listProducts({ regionId, limit: 4, order: "-external_id" }),
       saleCategory
         ? listProducts({ regionId, categoryId: saleCategory.id, limit: 8 })
         : Promise.resolve({ products: [], count: 0, offset: 0, limit: 0 }),

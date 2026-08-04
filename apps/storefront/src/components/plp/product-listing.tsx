@@ -68,6 +68,12 @@ export function ProductListing({
 
   return (
     <div className="flex flex-col gap-8">
+      {/* The product names are h3, so without this the outline jumps h1 to h3
+          and a screen reader reports a missing level. The heading is visually
+          redundant next to the category title, which is exactly why it is
+          hidden rather than invented as decoration. */}
+      <h2 className="sr-only">Продукти</h2>
+
       <div className="grid grid-cols-2 gap-x-4 gap-y-8 lg:grid-cols-4">
         {products.map((product, index) => (
           <ProductCard

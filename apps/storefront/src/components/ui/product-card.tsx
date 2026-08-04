@@ -73,8 +73,14 @@ export function ProductCard({
               fill
               sizes="(min-width: 1024px) 25vw, 50vw"
               priority={priority}
+              /* 180ms, not 320. A hover is the moment the user is watching for
+                 a response, and a third of a second reads as lag.
+
+                 No touch guard needed: Tailwind v4 already compiles every
+                 hover and group-hover variant inside @media (hover: hover), so
+                 a tap on a phone cannot flash the second image. */
               className={cn(
-                "object-cover transition-opacity duration-(--duration-base)",
+                "object-cover transition-opacity duration-(--duration-fast)",
                 secondary && "group-hover:opacity-0",
               )}
             />
@@ -84,7 +90,7 @@ export function ProductCard({
                 alt=""
                 fill
                 sizes="(min-width: 1024px) 25vw, 50vw"
-                className="object-cover opacity-0 transition-opacity duration-(--duration-base) group-hover:opacity-100"
+                className="object-cover opacity-0 transition-opacity duration-(--duration-fast) group-hover:opacity-100"
               />
             )}
           </div>
@@ -100,7 +106,11 @@ export function ProductCard({
       </div>
 
       <div className="flex flex-col gap-2">
-        <h3 className="font-body text-nav font-normal text-primary uppercase">
+        {/* Two lines, then ellipsis. Bulgarian product names run long enough to
+            reach four lines in a two-up grid, which pushes each card's price to
+            a different height and makes the row read as ragged rather than as a
+            grid. The full name is on the product page. */}
+        <h3 className="line-clamp-2 font-body text-nav font-normal text-primary uppercase">
           <Link href={href} className="hover:underline">
             {name}
           </Link>

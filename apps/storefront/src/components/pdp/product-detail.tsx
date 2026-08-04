@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { WishlistButton } from "@/components/ui/wishlist-button";
 import { cn } from "@/lib/cn";
 import { discountPercent, formatBgn, formatEur } from "@/lib/price";
+import { useFocusTrap } from "@/lib/use-focus-trap";
 
 export interface PdpColor {
   name: string;
@@ -49,6 +50,7 @@ export function ProductDetail({
   const [sizeError, setSizeError] = useState(false);
   const [chartOpen, setChartOpen] = useState(false);
   const errorId = useId();
+  const groupId = useId();
 
   const color = colors[colorIndex] ?? colors[0];
   const discount = discountPercent(price, compareAtPrice);
@@ -124,27 +126,39 @@ export function ProductDetail({
               <legend className="font-body text-nav text-primary">
                 Цвят: <span className="text-muted-text">{color.name}</span>
               </legend>
+              {/* Native radios rather than buttons with aria-pressed. Colour is
+                  one choice among several, which is what a radio group means;
+                  aria-pressed describes independent toggles. Going native also
+                  brings arrow-key navigation and grouping for free. */}
               <ul className="flex flex-wrap items-center gap-3">
                 {colors.map((entry, index) => (
                   <li key={entry.name}>
-                    <button
-                      type="button"
-                      onClick={() => {
+                    <input
+                      type="radio"
+                      name={`${groupId}-color`}
+                      id={`${groupId}-color-${index}`}
+                      value={entry.name}
+                      checked={index === colorIndex}
+                      onChange={() => {
                         setColorIndex(index);
                         setSize(null);
                       }}
-                      aria-pressed={index === colorIndex}
-                      aria-label={entry.name}
+                      className="peer sr-only"
+                    />
+                    <label
+                      htmlFor={`${groupId}-color-${index}`}
                       className={cn(
-                        "relative block size-14 overflow-hidden bg-neutral",
+                        "relative block size-14 cursor-pointer overflow-hidden bg-neutral",
                         "outline-offset-2 transition-[outline-color] duration-(--duration-fast)",
-                        index === colorIndex ? "outline-2 outline-primary" : "outline-transparent",
+                        "outline-transparent peer-checked:outline-2 peer-checked:outline-primary",
+                        "peer-focus-visible:outline-2 peer-focus-visible:outline-primary",
                       )}
                     >
                       {entry.images[0] && (
                         <Image src={entry.images[0]} alt="" fill sizes="56px" className="object-cover" />
                       )}
-                    </button>
+                      <span className="sr-only">{entry.name}</span>
+                    </label>
                   </li>
                 ))}
               </ul>
@@ -168,29 +182,36 @@ export function ProductDetail({
             <ul className="flex flex-wrap gap-2">
               {color.sizes.map((entry) => (
                 <li key={entry.label}>
-                  <button
-                    type="button"
+                  <input
+                    type="radio"
+                    name={`${groupId}-size`}
+                    id={`${groupId}-size-${entry.label}`}
+                    value={entry.label}
                     disabled={!entry.inStock}
-                    aria-pressed={size === entry.label}
-                    onClick={() => {
+                    checked={size === entry.label}
+                    onChange={() => {
                       setSize(entry.label);
                       setSizeError(false);
                     }}
+                    className="peer sr-only"
+                  />
+                  <label
+                    htmlFor={`${groupId}-size-${entry.label}`}
                     className={cn(
-                      "relative grid h-11 min-w-14 place-items-center px-3",
-                      "rounded-sharp border-2 font-body text-nav transition-colors duration-(--duration-fast)",
-                      size === entry.label
-                        ? "border-primary bg-primary text-white"
-                        : "border-border text-primary hover:border-primary",
+                      "relative grid h-11 min-w-14 cursor-pointer place-items-center px-3",
+                      "rounded-sharp border-2 border-border font-body text-nav text-primary",
+                      "transition-colors duration-(--duration-fast) hover:border-primary",
+                      "peer-checked:border-primary peer-checked:bg-primary peer-checked:text-white",
+                      "peer-focus-visible:outline-2 peer-focus-visible:outline-primary peer-focus-visible:outline-offset-2",
                       /* Sold-out sizes stay visible and struck through. Removing
                          them would leave a shopper wondering whether the shop
                          stocks that size at all. */
                       !entry.inStock &&
-                        "cursor-not-allowed border-border text-muted-text line-through hover:border-border",
+                        "cursor-not-allowed text-muted-text line-through hover:border-border",
                     )}
                   >
                     {entry.label}
-                  </button>
+                  </label>
                 </li>
               ))}
             </ul>
@@ -268,17 +289,19 @@ function SizeChartDialog({
   onClose: () => void;
 }) {
   const titleId = useId();
+  const panel = useFocusTrap<HTMLDivElement>(true);
   return (
     <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby={titleId}
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center"
+      className="rp-overlay-scrim fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center"
       onClick={onClose}
     >
       {/* Flat fill and a hard edge, never a soft shadow. */}
       <div
-        className="max-h-[80dvh] w-full max-w-xl overflow-y-auto bg-background p-6"
+        ref={panel}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        className="rp-dialog-panel max-h-[80dvh] w-full max-w-xl overflow-y-auto bg-background p-6"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-4">

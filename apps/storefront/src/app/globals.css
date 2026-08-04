@@ -43,3 +43,42 @@
     transform: translateY(300%);
   }
 }
+
+/* Overlays.
+
+   Both start from 0.98 rather than 0, because nothing in the world appears out
+   of nothing; even a barely-visible starting size reads as an object arriving
+   rather than materialising. Both are short: an overlay the user opened is one
+   they are already waiting on.
+
+   The dialog scales from its centre because it is not anchored to anything -
+   it owns the viewport. The filter panel scales from its top edge, where its
+   trigger is, so it reads as unfolding out of the button that opened it. */
+@layer components {
+  .rp-overlay-scrim {
+    animation: rp-fade var(--duration-fast) var(--ease-brand);
+  }
+
+  .rp-dialog-panel {
+    transform-origin: center;
+    animation: rp-pop 200ms var(--ease-brand);
+  }
+
+  .rp-panel-from-top {
+    transform-origin: top center;
+    animation: rp-pop var(--duration-fast) var(--ease-brand);
+  }
+}
+
+@keyframes rp-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes rp-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+}

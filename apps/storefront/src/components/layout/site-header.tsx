@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { NAV_GROUPS, SALE_LINK, type NavGroup } from "@/lib/navigation";
 import { cn } from "@/lib/cn";
+import { useFocusTrap } from "@/lib/use-focus-trap";
 
 export interface SiteHeaderProps {
   /** True on pages whose first section is full-bleed imagery, so the bar sits
@@ -68,7 +69,7 @@ export function SiteHeader({ overlay = false }: SiteHeaderProps) {
             aria-label={mobileOpen ? "Затвори менюто" : "Отвори менюто"}
             aria-expanded={mobileOpen}
             onClick={() => setMobileOpen((open) => !open)}
-            className="grid size-8 place-items-center lg:hidden"
+            className="-ml-2 grid size-11 place-items-center lg:hidden"
           >
             <List size={22} aria-hidden />
           </button>
@@ -113,14 +114,14 @@ export function SiteHeader({ overlay = false }: SiteHeaderProps) {
             </Link>
           </nav>
 
-          <div className="flex items-center gap-1 md:gap-2">
-            <button type="button" aria-label="Търсене" className="grid size-8 place-items-center">
+          <div className="-mr-2 flex items-center">
+            <button type="button" aria-label="Търсене" className="grid size-11 place-items-center">
               <MagnifyingGlass size={20} aria-hidden />
             </button>
-            <Link href="/wishlist" aria-label="Любими" className="grid size-8 place-items-center">
+            <Link href="/wishlist" aria-label="Любими" className="grid size-11 place-items-center">
               <Heart size={20} aria-hidden />
             </Link>
-            <Link href="/cart" aria-label="Количка" className="grid size-8 place-items-center">
+            <Link href="/cart" aria-label="Количка" className="grid size-11 place-items-center">
               <ShoppingBag size={20} aria-hidden />
             </Link>
           </div>
@@ -178,8 +179,17 @@ function MegaMenu({ group, open }: { group: NavGroup; open: boolean }) {
 }
 
 function MobileMenu({ onClose }: { onClose: () => void }) {
+  // Full-screen navigation is a modal surface: without this, Tab walks straight
+  // out of it and into the page it is covering.
+  const panel = useFocusTrap<HTMLDivElement>(true);
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-background text-primary lg:hidden">
+    <div
+      ref={panel}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Меню"
+      className="fixed inset-0 z-50 flex flex-col bg-background text-primary lg:hidden"
+    >
       <div className="flex h-14 items-center justify-between border-b border-border px-4">
         <span className="font-headline text-[1.375rem] leading-none font-bold tracking-[0.06em] uppercase">
           Red Point
@@ -188,7 +198,7 @@ function MobileMenu({ onClose }: { onClose: () => void }) {
           type="button"
           onClick={onClose}
           aria-label="Затвори менюто"
-          className="grid size-8 place-items-center"
+          className="grid size-11 place-items-center"
         >
           <X size={22} aria-hidden />
         </button>

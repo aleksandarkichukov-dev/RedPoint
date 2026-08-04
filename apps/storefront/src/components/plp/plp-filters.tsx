@@ -123,7 +123,7 @@ export function PlpFilters({ facets }: PlpFiltersProps) {
             key={facet.param}
             role="listbox"
             aria-label={facet.label}
-            className="absolute inset-x-0 top-full z-30 max-h-80 overflow-y-auto border-b border-border bg-background"
+            className="rp-panel-from-top absolute inset-x-0 top-full z-30 max-h-80 overflow-y-auto border-b border-border bg-background"
           >
             <ul className="grid grid-cols-2 gap-x-6 p-4 sm:grid-cols-3 lg:grid-cols-5">
               {facet.options.map((option) => {
