@@ -1,6 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import type { ExecArgs } from "@medusajs/framework/types";
+import type { ExecArgs, RemoteQueryFunction } from "@medusajs/framework/types";
 import { ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils";
 import {
   createInventoryLevelsWorkflow,
@@ -29,6 +29,11 @@ import { mapProduct, toStaticPath, type MappingWarning } from "./map-product.js"
  *
  * Safe to re-run: each step checks for what it already created.
  */
+
+/* What the container actually hands back for ContainerRegistrationKeys.QUERY.
+   It strips the symbol-keyed members off RemoteQueryFunction, so referring to
+   that type directly does not compile. */
+type MedusaQuery = Omit<RemoteQueryFunction, symbol>;
 
 const REPO_ROOT = path.resolve(process.cwd(), "../..");
 const PRODUCTS_FILE = path.join(REPO_ROOT, "seed", "products.json");
@@ -305,7 +310,7 @@ export default async function seed({ container }: ExecArgs) {
 /** Walks the category tree depth first so parents exist before their children. */
 async function seedCategories(
   container: ExecArgs["container"],
-  query: ReturnType<ExecArgs["container"]["resolve"]>,
+  query: MedusaQuery,
   logger: { info: (message: string) => void },
 ): Promise<Map<string, string>> {
   const { data: existing } = await query.graph({
@@ -346,7 +351,7 @@ async function seedCategories(
 /** Sets placeholder stock on every variant's inventory item. */
 async function seedInventory(
   container: ExecArgs["container"],
-  query: ReturnType<ExecArgs["container"]["resolve"]>,
+  query: MedusaQuery,
   mapped: { variants: { sku: string; seedQuantity: number }[] }[],
   stockLocationId: string,
   logger: { info: (message: string) => void },

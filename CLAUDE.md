@@ -72,7 +72,9 @@ EUR is the store currency. BGN is never stored — it is derived at render time 
 
 ## Known constraints
 
-- **Docker Desktop is not installed locally, and neither is WSL.** `docker-compose.yml` and `apps/backend/Dockerfile` are written but have never been executed. Everything in Phase 2 is type-checked, not run: no database has ever seen this schema, and `pnpm seed` has never completed.
+- **Docker Desktop is not installed locally, and neither is WSL.** `docker-compose.yml` and `apps/backend/Dockerfile` are written but have never been executed. `medusa build` succeeds, so the config and modules are valid, but no database has ever seen this schema and `pnpm seed` has never run.
+- **`pnpm-workspace.yaml` carries two hoisting rules that Medusa forces.** Do not remove them without reading the comments there. `@types/react` is excluded from the hoist because the storefront is React 19 and the Medusa admin is React 18, and a shared hoist makes one of them compile against two copies of React's types. `@medusajs/*` is public-hoisted because Medusa's generated admin entry imports its first-party plugins by bare specifier and assumes npm's flat tree.
+- **`ts-node` is an explicit dependency of the backend.** The Medusa CLI needs it to read `medusa-config.ts`; under npm it is found transitively, under pnpm it is not.
 - **Node is 24.x locally.** Medusa 2.18 declares `engines: node >=20`, so this is allowed, but it is ahead of what Medusa tests against. If the backend behaves strangely, try Node 22 before debugging anything else.
 - The old site sits behind Cloudflare and blocks after ~10 rapid requests. The scraper needs Playwright, 1.5–2s throttle and a resumable on-disk cache.
 - JSON-LD prices on the old site are unreliable (seen `16.00` where the page rendered `62.59`). Take the rendered DOM price and log every mismatch for the client to review.

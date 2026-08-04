@@ -2,7 +2,7 @@
   "name": "@redpoint/catalog",
   "version": "0.0.0",
   "private": true,
-  "type": "module",
+  "//": "CommonJS on purpose. The Medusa backend is CJS and cannot require an ESM package; the scraper is ESM and imports CJS through normal interop. One format that both consumers can read beats a dual build for a package this small.",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {

@@ -2,10 +2,50 @@ packages:
   - "apps/*"
   - "packages/*"
   - "tools/*"
+
+# The storefront is React 19, the Medusa admin is React 18. Left alone, pnpm
+# hoists one of them into the shared virtual store, and whichever app does not
+# win ends up compiling against two copies of React's types at once
+# ("ReactNode is not assignable to React.ReactNode"). Excluding them from the
+# hoist forces every package to resolve the version it actually declares.
+hoistPattern:
+  - "*"
+  - "!@types/react"
+  - "!@types/react-dom"
+
+# Medusa's admin bundle is generated code that imports its first-party plugins
+# (@medusajs/dashboard, @medusajs/draft-order/admin, ...) by bare specifier.
+# Medusa assumes npm's flat node_modules, where transitive packages happen to
+# be resolvable; under pnpm's isolation Vite cannot find them and the admin
+# build dies one plugin at a time. Hoisting the scope publicly restores the
+# resolution Medusa expects without switching the whole workspace to a hoisted
+# node linker.
+publicHoistPattern:
+  - "@medusajs/*"
+
+# Postinstall scripts are opt-in. Each entry below says why it is allowed, so
+# adding a new one is a decision rather than a reflex.
 allowBuilds:
+  # Medusa compiles the backend with SWC; the postinstall fetches its native
+  # binary. Nothing builds without it.
+  '@swc/core': true
+
+  # Anonymous usage telemetry. Off: this is a client's commercial project and
+  # nothing about it needs to leave the machine.
+  '@medusajs/telemetry': false
+
+  # Native accelerator for msgpackr, which Medusa's event bus serialises with.
+  # Optional in principle, but the JS fallback is markedly slower.
+  msgpackr-extract: true
+
+  # Generates its static code at install time. Pulled in by the OpenTelemetry
+  # packages Medusa depends on.
+  protobufjs: true
+
   # tsx runs the scraper straight from TypeScript; esbuild is its compiler and
   # needs its postinstall to fetch the platform binary.
   esbuild: true
+
   # next/image needs sharp to resize and re-encode product photography at build
   # and request time. Without it Next falls back to unoptimised originals.
   sharp: true
