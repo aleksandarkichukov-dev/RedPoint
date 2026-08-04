@@ -96,7 +96,45 @@ async function readJsonLd(page: Page): Promise<JsonLdProduct | null> {
 
 async function readDomPrice(
   page: Page,
-): Promise<{ value: number; source: string } | null> {
+): Promise<{ value: number; compareAt: number | null; source: string } | null> {
+  /* Discounted products print BOTH figures, the original first:
+   *
+   *   TD > DEL > SPAN > B                         138.86 лв   struck through
+   *   TR.product_name_number_contain > TD > B      69.43 лв   what you pay
+   *
+   * Taking the first currency-shaped string in document order therefore picked
+   * the original and would have migrated every sale item at roughly double
+   * price. The struck-through figure is now excluded from the current price
+   * and captured separately, which is also what makes a `-%` badge possible.
+   */
+  const prices = await page.evaluate(() => {
+    const current: string[] = [];
+    const struck: string[] = [];
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    let node: Node | null;
+    while ((node = walker.nextNode())) {
+      const element = node.parentElement;
+      if (!element) continue;
+      // Related-product carousels carry other products' prices.
+      if (element.closest(".list_products_container, .slides, script, style")) continue;
+      const text = (node.nodeValue ?? "").trim();
+      if (!/\d+[.,]\d{2}/.test(text)) continue;
+      const isStruck =
+        element.closest("del, s, strike") !== null ||
+        element.closest(".old_price") !== null ||
+        getComputedStyle(element).textDecorationLine.includes("line-through");
+      (isStruck ? struck : current).push(text);
+    }
+    return { current, struck };
+  });
+
+  const compareAt = prices.struck.map(parsePriceText).find((v) => v !== null) ?? null;
+
+  for (const text of prices.current) {
+    const value = parsePriceText(text);
+    if (value !== null) return { value, compareAt, source: "dom:current-price" };
+  }
+
   const texts = await page.evaluate(
     (selectors) =>
       selectors.map((selector) => ({
@@ -108,7 +146,7 @@ async function readDomPrice(
 
   for (const { selector, text } of texts) {
     const value = parsePriceText(text);
-    if (value !== null) return { value, source: `dom:${selector}` };
+    if (value !== null) return { value, compareAt, source: `dom:${selector}` };
   }
 
   // Last resort: the first currency-shaped string that does NOT belong to the
@@ -131,7 +169,7 @@ async function readDomPrice(
   const match = /(\d{1,6}[.,]\d{2})\s*(?:лв|BGN|лева)/i.exec(fallback);
   if (match?.[1]) {
     const value = parsePriceText(match[1]);
-    if (value !== null) return { value, source: "dom:currency-regex" };
+    if (value !== null) return { value, compareAt, source: "dom:currency-regex" };
   }
 
   return null;
@@ -416,6 +454,25 @@ export async function parseProduct(
       if (!sizes.some((known) => known.label === size.label)) sizes.push(size);
     }
 
+    /* Some size tables on the old site list every size twice (17457 prints
+       30 30 31 31 32 32 ...). Left alone that yields two variants with the
+       same sku and Medusa rejects the whole seed over one bad product. The
+       in-stock copy wins, because it carries a real data-size id and the
+       measurements; a chart-only duplicate carries neither. */
+    const byLabel = new Map<string, Size>();
+    for (const size of sizes) {
+      const existing = byLabel.get(size.label);
+      if (!existing || (!existing.inStock && size.inStock)) byLabel.set(size.label, size);
+    }
+    const uniqueSizes = [...byLabel.values()];
+    if (uniqueSizes.length !== sizes.length) {
+      warnings.push(
+        `size table lists ${sizes.length - uniqueSizes.length} duplicate size(s), de-duplicated`,
+      );
+    }
+    sizes.length = 0;
+    sizes.push(...uniqueSizes);
+
     const colors: Color[] =
       sizes.length > 0 && images.length > 0
         ? [
@@ -460,7 +517,15 @@ export async function parseProduct(
       name,
       url: link.url,
       categoryKeys,
-      price: { bgn: domPrice.value, source: domPrice.source },
+      price: {
+        bgn: domPrice.value,
+        // Only a genuine reduction counts; equal figures are not a discount.
+        compareAtBgn:
+          domPrice.compareAt !== null && domPrice.compareAt > domPrice.value
+            ? domPrice.compareAt
+            : null,
+        source: domPrice.source,
+      },
       jsonLdPrice: jsonLdPrice !== null && Number.isFinite(jsonLdPrice) ? jsonLdPrice : null,
       description: description || null,
       material: extractMaterial(description),

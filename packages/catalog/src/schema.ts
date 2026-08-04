@@ -45,8 +45,11 @@ export const SizeChartRowSchema = z.object({
 });
 
 export const PriceSchema = z.object({
-  /** The price actually rendered to shoppers, in BGN. */
+  /** What a shopper pays today, in BGN. Never the struck-through figure. */
   bgn: z.number().positive(),
+  /** The struck-through original, when the product is discounted. This is what
+   *  makes a `-%` badge possible, and it is null on full-price items. */
+  compareAtBgn: z.number().positive().nullable(),
   /** Which strategy found it, so a bad run is auditable rather than mysterious. */
   source: z.string().min(1),
 });

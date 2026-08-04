@@ -333,9 +333,13 @@ export default async function seed({ container }: ExecArgs) {
   for (const warning of warnings) {
     logger.warn(`${warning.sku}: ${warning.message}`);
   }
+  /* Which sizes are in stock is real: the old site simply does not render a
+     sold-out size, so the size table is the catalogue and the buttons are the
+     stock. The QUANTITY is not real, because the old site never shows one. */
   logger.info(
-    "stock quantities are PLACEHOLDERS. The scraper could not identify the " +
-      "old site's sold-out marker, so availability is unverified.",
+    "availability per size is taken from the source. The quantities behind it " +
+      "are nominal, because the old site never publishes a number. Real counts " +
+      "arrive with the Phase 7 bulk module.",
   );
 }
 

@@ -72,6 +72,12 @@ export function mapProduct(
   warnings: MappingWarning[],
 ): MappedProduct {
   const eur = bgnToEur(product.price.bgn);
+  /* Carried in metadata rather than as a Medusa price. Showing a struck-through
+     original properly means a price list, which is a Phase 5 decision tied to
+     how the client runs promotions. Until then the storefront reads this and
+     renders the `-%` badge from it. */
+  const compareAtEur =
+    product.price.compareAtBgn !== null ? bgnToEur(product.price.compareAtBgn) : null;
   const roundTripBgn = eurToBgn(eur);
   if (Math.abs(roundTripBgn - product.price.bgn) > 0.001) {
     warnings.push({
@@ -91,30 +97,46 @@ export function mapProduct(
   ];
 
   const variants: MappedVariant[] = [];
+  /* Defensive: variant SKUs must be unique or Medusa rejects the entire batch,
+     so one malformed product would take the whole catalogue down with it. The
+     scraper already de-duplicates, but this is the layer that actually fails,
+     so it refuses to emit a duplicate rather than trusting its input. */
+  const seenSkus = new Set<string>();
   for (const color of product.colors) {
     for (const size of color.sizes) {
+      /* The brief maps the article number onto `variant.sku`, but a product
+         with 3 colours x 7 sizes has 21 variants and SKUs must be unique. So
+         the article number lives on `product.external_id` and on variant
+         metadata, and the variant SKU is a composite of it. */
+      const sku = `${product.sku}-${color.id}-${size.id}`;
+      if (seenSkus.has(sku)) {
+        warnings.push({
+          sku: product.sku,
+          message: `duplicate variant ${sku} skipped; the source lists that size twice`,
+        });
+        continue;
+      }
+      seenSkus.add(sku);
+
       variants.push({
         title: `${color.name} / ${size.label}`,
-        /* The brief maps the article number onto `variant.sku`, but a product
-           with 3 colours x 7 sizes has 21 variants and SKUs must be unique.
-           So the article number lives on `product.external_id` and on variant
-           metadata, and the variant SKU is a composite of it. */
-        sku: `${product.sku}-${color.id}-${size.id}`,
+        sku,
         manage_inventory: true,
         options: { [OPTION_COLOR]: color.name, [OPTION_SIZE]: size.label },
         prices: [{ amount: eur, currency_code: "eur" }],
         metadata: {
           article_no: product.sku,
+          compare_at_eur: compareAtEur,
           source_color_id: color.id,
           source_size_id: size.id,
           source_shop_id: size.shopId,
           width_cm: size.widthCm,
           length_cm: size.lengthCm,
         },
-        /* Placeholder stock. The scraper could not identify the sold-out
-           marker on the old site, so `inStock` is optimistic for everything.
-           These numbers exist to make the catalogue browsable, not to be
-           believed. Real stock arrives through the Phase 7 bulk module. */
+        /* In stock or not is real: the old site never renders a sold-out size,
+           so a size present in the table but missing a button is genuinely
+           unavailable. The number 10 is not real; the old site publishes no
+           quantity anywhere. Zero, however, means zero. */
         seedQuantity: size.inStock ? 10 : 0,
       });
     }
@@ -178,8 +200,10 @@ export function mapProduct(
       color_images: colorImages,
       size_chart: sizeChart,
       scraped_at: product.scrapedAt,
-      /* Kept so the client's price review has both numbers in one place. */
+      /* Kept so the client's price review has every number in one place. */
       scraped_price_bgn: product.price.bgn,
+      scraped_compare_at_bgn: product.price.compareAtBgn,
+      compare_at_eur: compareAtEur,
       scraped_price_source: product.price.source,
     },
   };
