@@ -267,14 +267,26 @@ async function readColorImages(page: Page, pictureDir: string | null): Promise<s
  */
 async function readSizeChart(page: Page): Promise<SizeChartRow[]> {
   return page.evaluate(() => {
-    const table = document.querySelector("table.sizes_table_with_pic");
-    if (!table) return [];
-
-    const rows = Array.from(table.querySelectorAll("tr"))
-      .map((row) =>
-        Array.from(row.querySelectorAll("th, td")).map((c) => (c.textContent ?? "").trim()),
-      )
-      .filter((cells) => cells.length >= 2);
+    /* The page ships TWO of these: `big_table` for desktop and `small_table`
+       for mobile. They are not the same data. On the jacket inspected the
+       desktop one stopped at S M L while the mobile one carried the real run,
+       S M L XL 2XL 3XL 4XL. Taking the first match silently truncated the size
+       run on some products and not others, so pick whichever has the most
+       sizes rather than whichever comes first. */
+    let rows: string[][] = [];
+    for (const candidate of Array.from(
+      document.querySelectorAll("table.sizes_table_with_pic"),
+    )) {
+      const candidateRows = Array.from(candidate.querySelectorAll("tr"))
+        .map((row) =>
+          Array.from(row.querySelectorAll("th, td")).map((c) => (c.textContent ?? "").trim()),
+        )
+        .filter((cells) => cells.length >= 2);
+      const widest = Math.max(0, ...candidateRows.map((cells) => cells.length));
+      const currentWidest = Math.max(0, ...rows.map((cells) => cells.length));
+      if (widest > currentWidest) rows = candidateRows;
+    }
+    if (rows.length === 0) return [];
 
     // Helpers stay inline: see the note on readSizes. Assigning an arrow to a
     // const inside page.evaluate makes esbuild emit __name(), which does not
@@ -341,53 +353,89 @@ export async function parseProduct(
     }
 
     /*
-     * Colours.
+     * One colour per page.
      *
-     * The brief said swatches carry `data-color-id` and live in
-     * `.small_product_color_pictures`. Neither is true: `data-color-id` sits
-     * only on the "compare" and "notify me" buttons, and that class does not
-     * exist anywhere on the page. The real colour id is `data-color` on each
-     * size button.
+     * The colour is the second segment of the URL, not a swatch on the page.
+     * The caller walks the sibling colour links and calls this once per colour,
+     * then merges the results by sku.
      *
-     * UNRESOLVED: how a multi-colour product exposes its other colours. The
-     * product inspected had exactly one, so there was no swatch row to find.
-     * Until that is answered, a product is read as the single colour currently
-     * displayed, and anything with more is under-migrated rather than wrong.
+     * Photography lives under a different number than the colour id (colour 25
+     * publishes under /color_pictures/22868/), carried on the compare button
+     * and in the gallery urls.
      */
-    const currentColor = await page.evaluate(() => {
-      const button = document.querySelector("li.productSizeBtn");
-      const colorId = button?.getAttribute("data-color") ?? null;
-      // Photography lives under a different number than the colour id
-      // (colour 25 -> /color_pictures/22868/), carried on the compare button
-      // and in the JSON-LD image url.
+    const pictureDir = await page.evaluate(() => {
       const compare = document.querySelector(".compareProduct");
       const fromCompare = compare?.getAttribute("data-product-id") ?? null;
       const fromImage = /\/color_pictures\/(\d+)\//.exec(
         document.querySelector<HTMLAnchorElement>('a[data-lightbox][href*="/color_pictures/"]')
           ?.getAttribute("href") ?? "",
       )?.[1];
-      return { colorId, pictureDir: fromCompare ?? fromImage ?? null };
+      return fromCompare ?? fromImage ?? null;
     });
 
-    const colors: Color[] = [];
-    const sizes = await readSizes(page);
-    const images = await readColorImages(page, currentColor.pictureDir);
+    const sizeChart = await readSizeChart(page);
+    const rendered = await readSizes(page);
+    const images = await readColorImages(page, pictureDir);
 
-    if (sizes.length === 0) warnings.push("no size buttons found");
+    if (rendered.length === 0) warnings.push("no size buttons found");
     if (images.length === 0) warnings.push("no gallery images found");
 
-    if (sizes.length > 0 && images.length > 0) {
-      const shopNames = [...new Set(sizes.map((size) => size.shopName).filter(Boolean))];
-      if (shopNames.length > 0) {
-        warnings.push(`sizes are scoped to shops: ${shopNames.join(", ")}`);
+    /*
+     * Availability.
+     *
+     * The old site has no sold-out marker, because it never renders a sold-out
+     * size at all. The size table lists the full run the product is made in
+     * (S M L XL 2XL 3XL 4XL on the jacket inspected) while only the sizes in
+     * stock get a button (S XL 2XL 3XL). So the table is the catalogue and the
+     * buttons are the stock, and the difference between them is what is out of
+     * stock.
+     *
+     * Creating the missing sizes as out-of-stock variants rather than dropping
+     * them matters: when the client restocks through the Phase 7 bulk module,
+     * the variant is already there to receive a quantity.
+     */
+    const renderedByLabel = new Map(rendered.map((size) => [size.label, size]));
+    const sizes: Size[] = sizeChart.map((row) => {
+      const inStockSize = renderedByLabel.get(row.size);
+      if (inStockSize) return inStockSize;
+      return {
+        // No button exists, so there is no data-size to borrow. Prefixed so it
+        // is obvious this id came from the table, not the site's own ids.
+        id: `chart:${row.size}`,
+        label: row.size,
+        inStock: false,
+        shopId: null,
+        shopName: null,
+        widthCm: row.widthCm,
+        lengthCm: row.lengthCm,
+      };
+    });
+
+    // A size on sale that the table never listed still has to be sellable.
+    for (const size of rendered) {
+      if (!sizes.some((known) => known.label === size.label)) sizes.push(size);
+    }
+
+    const colors: Color[] =
+      sizes.length > 0 && images.length > 0
+        ? [
+            {
+              id: link.colorId,
+              // The site exposes no human name for a colour anywhere. Left as
+              // the id so it is obviously a placeholder; the client renames
+              // colours through the bulk module.
+              name: `Цвят ${link.colorId}`,
+              images,
+              sizes,
+            },
+          ]
+        : [];
+
+    if (colors.length > 0) {
+      const outOfStock = sizes.filter((size) => !size.inStock).map((size) => size.label);
+      if (outOfStock.length > 0) {
+        warnings.push(`colour ${link.colorId} out of stock in: ${outOfStock.join(", ")}`);
       }
-      colors.push({
-        id: currentColor.colorId ?? "default",
-        name: `Цвят ${currentColor.colorId ?? "default"}`,
-        images,
-        sizes,
-      });
-      warnings.push("only the displayed colour was read; swatch selector is unresolved");
     }
 
     if (colors.length === 0) {
@@ -418,7 +466,7 @@ export async function parseProduct(
       material: extractMaterial(description),
       available,
       colors,
-      sizeChart: await readSizeChart(page),
+      sizeChart,
       scrapedAt: new Date().toISOString(),
     };
 

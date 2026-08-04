@@ -113,11 +113,26 @@ export class Session {
     throw new Error(`failed after ${CONFIG.maxRetries} attempts: ${url}: ${String(lastError)}`);
   }
 
-  /** Navigates without caching, leaving the live page ready to interact with. */
+  /**
+   * Navigates without caching, leaving the live page ready to read.
+   *
+   * Waits for `load`, not `domcontentloaded`. The old site finishes building
+   * parts of the page in script: the size table in particular is served with a
+   * partial set of columns and filled in afterwards, so reading at
+   * domcontentloaded silently returned a truncated size run on some products
+   * and the full one on others. Stylesheets, images and fonts are aborted
+   * anyway, so `load` costs almost nothing here.
+   */
   async openLive(url: string): Promise<void> {
     await this.throttle();
     this.lastNavigationAt = Date.now();
     this.requestCount += 1;
-    await this.page.goto(url, { waitUntil: "domcontentloaded" });
+    await this.page.goto(url, { waitUntil: "load" });
+    // The size buttons are the last thing to appear; once they exist the rest
+    // of the product block is settled. Absent on a sold-out product, hence the
+    // swallowed timeout rather than a throw.
+    await this.page
+      .waitForSelector("li.productSizeBtn, table.sizes_table_with_pic", { timeout: 8_000 })
+      .catch(() => undefined);
   }
 }

@@ -3,7 +3,15 @@ import type { Session } from "./session.js";
 
 /** `/category/{id}/{path}` and `/category/{id}/{path}/page/{n}` */
 const CATEGORY_URL = /\/category\/(\d+)\//;
-/** `/product/{product_id}/{cat_id}/{path}/{slug}-{sku}` */
+
+/**
+ * `/product/{product_id}/{colour_id}/{path}/{slug}-{sku}`
+ *
+ * The brief documents the second segment as a category id. It is not: it is the
+ * COLOUR. A three-colour product is three separate URLs sharing one product id
+ * and one sku, each rendering only that colour's photography and sizes. That is
+ * why there is no swatch row to find on the page.
+ */
 const PRODUCT_URL = /\/product\/(\d+)\/(\d+)\//;
 
 /**
@@ -40,7 +48,10 @@ export async function discoverCategoryUrls(
 
 export interface ProductLink {
   url: string;
+  /** `product_id`, shared by every colour of the same product. */
   externalId: string;
+  /** `colour_id`, the second URL segment. */
+  colorId: string;
 }
 
 /**
@@ -72,16 +83,45 @@ export async function collectProductLinks(
     const sizeBefore = found.size;
     for (const href of hrefs) {
       const match = PRODUCT_URL.exec(href);
-      if (!match?.[1]) continue;
+      if (!match?.[1] || !match[2]) continue;
       const absolute = new URL(href, BASE_URL).toString();
       if (!found.has(absolute)) {
-        found.set(absolute, { url: absolute, externalId: match[1] });
+        found.set(absolute, { url: absolute, externalId: match[1], colorId: match[2] });
       }
-      if (found.size >= limit) break;
+      // The limit counts PRODUCTS, not urls. A three-colour product is three
+      // urls, and cutting mid-product would ship a partial colour set.
+      if (new Set([...found.values()].map((link) => link.externalId)).size >= limit) break;
     }
 
     if (found.size === sizeBefore) break;
   }
 
-  return [...found.values()].slice(0, limit);
+  return [...found.values()];
+}
+
+/**
+ * Other colours of the product currently loaded, taken from the links the page
+ * already carries. Costs no extra request, and catches colours that the
+ * category listing happened not to show.
+ */
+export async function readSiblingColorLinks(
+  session: Session,
+  link: ProductLink,
+): Promise<ProductLink[]> {
+  const hrefs = await session.livePage.evaluate((productId) => {
+    const pattern = new RegExp(`/product/${productId}/`);
+    return Array.from(document.querySelectorAll<HTMLAnchorElement>("a"))
+      .map((anchor) => anchor.getAttribute("href") ?? "")
+      .filter((href) => pattern.test(href));
+  }, link.externalId);
+
+  const siblings = new Map<string, ProductLink>();
+  for (const href of hrefs) {
+    const match = PRODUCT_URL.exec(href);
+    if (!match?.[1] || !match[2]) continue;
+    if (match[2] === link.colorId) continue;
+    const absolute = new URL(href, BASE_URL).toString();
+    siblings.set(absolute, { url: absolute, externalId: match[1], colorId: match[2] });
+  }
+  return [...siblings.values()];
 }

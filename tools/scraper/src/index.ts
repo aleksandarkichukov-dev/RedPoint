@@ -15,7 +15,12 @@ import {
   writeParsedProduct,
 } from "./cache.js";
 import { downloadColorImages, type DownloadReport } from "./images.js";
-import { collectProductLinks, discoverCategoryUrls, type ProductLink } from "./parse-category.js";
+import {
+  collectProductLinks,
+  discoverCategoryUrls,
+  readSiblingColorLinks,
+  type ProductLink,
+} from "./parse-category.js";
 import { parseProduct } from "./parse-product.js";
 import { Session } from "./session.js";
 
@@ -23,6 +28,8 @@ interface Args {
   validateOnly: boolean;
   limit: number;
   onlyCategory: string | null;
+  /** Single product url, for checking a parse without crawling a category. */
+  onlyUrl: string | null;
 }
 
 function parseArgs(argv: string[]): Args {
@@ -35,6 +42,7 @@ function parseArgs(argv: string[]): Args {
     validateOnly: argv.includes("--validate-only"),
     limit: limitArg ? Number(limitArg) : CONFIG.productsPerCategory,
     onlyCategory: get("--category"),
+    onlyUrl: get("--url"),
   };
 }
 
@@ -87,18 +95,38 @@ async function main(): Promise<number> {
   const imageReport: DownloadReport = { downloaded: 0, skipped: 0, failed: [] };
 
   try {
-    console.log("discovering category urls from the live navigation");
-    const categoryUrls = await discoverCategoryUrls(session);
-    console.log(`  found ${categoryUrls.size} category urls`);
-
-    const categories = crawlableCategories().filter(
-      (category) => !args.onlyCategory || category.key === args.onlyCategory,
-    );
-
-    // One product can sit in several categories. Collect the union first so
-    // each page is only ever visited once.
+    // One product can sit in several categories, and one product is several
+    // urls (one per colour). Collect the union first so each page is only ever
+    // visited once.
     const linksByUrl = new Map<string, ProductLink>();
     const categoryKeysByUrl = new Map<string, Set<string>>();
+
+    if (args.onlyUrl) {
+      const match = /\/product\/(\d+)\/(\d+)\//.exec(args.onlyUrl);
+      if (!match?.[1] || !match[2]) throw new Error(`not a product url: ${args.onlyUrl}`);
+      linksByUrl.set(args.onlyUrl, {
+        url: args.onlyUrl,
+        externalId: match[1],
+        colorId: match[2],
+      });
+      categoryKeysByUrl.set(args.onlyUrl, new Set(["men-jackets"]));
+      console.log(`single url mode: ${args.onlyUrl}`);
+    }
+
+    const categories = args.onlyUrl
+      ? []
+      : crawlableCategories().filter(
+          (category) => !args.onlyCategory || category.key === args.onlyCategory,
+        );
+
+    const categoryUrls = args.onlyUrl
+      ? new Map<number, string>()
+      : await (async () => {
+          console.log("discovering category urls from the live navigation");
+          const urls = await discoverCategoryUrls(session);
+          console.log(`  found ${urls.size} category urls`);
+          return urls;
+        })();
 
     for (const category of categories) {
       const categoryUrl = categoryUrls.get(category.id);
@@ -108,8 +136,13 @@ async function main(): Promise<number> {
       }
 
       const cached = state.categoryProducts[`${category.key}:${category.id}`];
-      const links = cached
-        ? cached.map((url) => ({ url, externalId: /\/product\/(\d+)\//.exec(url)?.[1] ?? "" }))
+      const links: ProductLink[] = cached
+        ? cached.flatMap((url) => {
+            const match = /\/product\/(\d+)\/(\d+)\//.exec(url);
+            return match?.[1] && match[2]
+              ? [{ url, externalId: match[1], colorId: match[2] }]
+              : [];
+          })
         : await collectProductLinks(session, categoryUrl, args.limit);
 
       state.categoryProducts[`${category.key}:${category.id}`] = links.map((l) => l.url);
@@ -144,6 +177,17 @@ async function main(): Promise<number> {
       const result = await parseProduct(session, link, categoryKeys);
       if (result.warnings.length > 0) {
         warnings.push({ url: link.url, warnings: result.warnings });
+      }
+
+      /* Each colour of a product is its own url. The category listing usually
+         shows all of them, but not always, so the page's own links to its
+         siblings are queued here. Adding to the map while iterating it is
+         deliberate: Map iterators pick up entries appended during the loop. */
+      for (const sibling of await readSiblingColorLinks(session, link)) {
+        if (linksByUrl.has(sibling.url)) continue;
+        linksByUrl.set(sibling.url, sibling);
+        categoryKeysByUrl.set(sibling.url, new Set(categoryKeys));
+        console.log(`         + colour ${sibling.colorId} of ${link.externalId}`);
       }
       if (!result.product) {
         errors.push({ url: link.url, error: result.error ?? "unknown" });
@@ -205,15 +249,25 @@ async function main(): Promise<number> {
       );
     }
 
-    // Same product from two categories collapses to one entry.
+    /* One entry per sku. The same product arrives once per colour, and once
+       more for every extra category it sits in, so both the colour sets and
+       the category keys have to be unioned. Dropping the duplicate outright
+       would silently throw away every colour but the first. */
     const bySku = new Map<string, Product>();
     for (const product of products) {
       const existing = bySku.get(product.sku);
-      if (existing) {
-        existing.categoryKeys = [...new Set([...existing.categoryKeys, ...product.categoryKeys])];
-      } else {
+      if (!existing) {
         bySku.set(product.sku, product);
+        continue;
       }
+      existing.categoryKeys = [...new Set([...existing.categoryKeys, ...product.categoryKeys])];
+      for (const color of product.colors) {
+        if (!existing.colors.some((known) => known.id === color.id)) {
+          existing.colors.push(color);
+        }
+      }
+      // Whichever page had a size table wins; they describe the same garment.
+      if (existing.sizeChart.length === 0) existing.sizeChart = product.sizeChart;
     }
 
     const output: ProductsFile = {

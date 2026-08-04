@@ -72,7 +72,8 @@ Section 5 of the handoff brief says the old-site research is done and should not
 | `ul#sizes_list li`, `data-size-id` | Does not exist. Sizes are `li.productSizeBtn` with `data-size`. |
 | Colours carry `data-color-id` | `data-color-id` is on the "compare" and "notify me" buttons only. The colour id is `data-color` on the size buttons. |
 | `.small_product_color_pictures` | Does not exist anywhere on the page. |
-| Sold-out marked `cross no_size_quantity` | Not observed. Unverified, see below. |
+| Sold-out marked `cross no_size_quantity` | No such marker exists. A sold-out size is not rendered at all. |
+| Second URL segment is the category id | It is the **colour** id. |
 | `description` is the composition ("100%памук") | It is marketing prose with the composition glued to the end. `extractMaterial()` separates them. |
 | `table.sizes_table_with_pic` | Correct. |
 | JSON-LD `Product` block | Correct, and on the two products checked its price agreed with the DOM. |
@@ -86,13 +87,32 @@ One trap: the page renders **both** a desktop and a mobile size block, so every 
 
 ## Still unresolved
 
-Three things could not be settled from the two single-colour products inspected. Each is recorded in `seed/reports/warnings.json` rather than guessed:
+- **Price element.** No named selector matched; the currency regex fallback is what wins, which means `price.source` reads `dom:currency-regex` for everything. It has agreed with JSON-LD on every product checked, but the price element carries no class or id of its own, so this is the least robust part of the parse. Watch `price.source` on any larger run.
+- **Per-shop stock.** Size buttons carry `data-shop` and `data-shopname`, and the shop shown varies by product. Whether online orders draw from one warehouse or from shop stock is a question for the client. The field is carried through to Medusa metadata unresolved.
+- **Colour names.** The site exposes no human-readable colour name anywhere, so they stay `Цвят {id}`. The client renames them through the Phase 7 bulk module.
 
-- **Sold-out marker.** Every size on both products was in stock, so there was nothing to compare against. `inStock` is currently optimistic for everything. Find a product that is out of stock in one size before trusting a full run.
-- **Colour swatches.** Both products had one colour, so there was no swatch row to locate. A multi-colour product is read as its displayed colour only, which under-migrates rather than corrupts. Colour names fall back to `Цвят {id}`.
-- **Price element.** No named selector matched; the currency regex fallback is what wins, which means `price.source` reads `dom:currency-regex` for everything. It agreed with JSON-LD on both products, but the price element has no class or id of its own, so this is the least robust part of the parse. Watch `price.source` on any larger run.
+Note the colour id and the photography directory are different numbers: colour `25` on product 16785, photography under `/color_pictures/22868/`.
 
-Also note the colour id and the photography directory are different numbers: colour `25` on product 16785, photography under `/color_pictures/22868/`.
+## Colours are URLs, not swatches
+
+The brief documents the product route as `/product/{product_id}/{cat_id}/…`. That second segment is not a category, it is the **colour**. A three-colour product is three separate URLs sharing one product id and one sku, each rendering only that colour's photography and only that colour's sizes. That is why there is no swatch row to find on the page.
+
+Each page links to its siblings, so `readSiblingColorLinks` queues the other colours from links already on the page, costing no extra request. Results are merged by sku, unioning the colour sets.
+
+## Availability is absence
+
+There is no sold-out marker, because a sold-out size is simply never rendered. The size table lists the full run the garment is made in; only the sizes in stock get a button. On `Преходно яке 16741`:
+
+```
+table       S  M  L  XL  2XL  3XL  4XL    the run
+colour 33   S         XL  2XL  3XL        in stock
+colour 26         L       2XL  3XL
+colour 25             XL  2XL  3XL
+```
+
+So the table is the catalogue, the buttons are the stock, and the difference is what is out of stock. Sizes present only in the table are emitted with `inStock: false` and an id prefixed `chart:`, because they have no button to borrow a `data-size` from. They are kept rather than dropped so the variant already exists in Medusa when the client restocks it.
+
+One trap: the page ships **two** `table.sizes_table_with_pic`, a `big_table` for desktop and a `small_table` for mobile, and they do not agree. On that jacket the desktop one stopped at `S M L` while the mobile one carried the full run. `readSizeChart` takes whichever has the most sizes, never the first.
 
 ## Category slugs
 
