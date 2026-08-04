@@ -24,7 +24,30 @@ const redisModules = REDIS_URL
         options: { redisUrl: REDIS_URL },
       },
       {
+        /* Without this the locking module falls back to in-memory, which only
+           holds within a single process. On the VPS the API and the worker are
+           separate processes, so an in-memory lock would let both run the same
+           job at once. Locking takes providers, like the file module, rather
+           than a bare resolve. */
+        resolve: "@medusajs/medusa/locking",
+        options: {
+          providers: [
+            {
+              resolve: "@medusajs/medusa/locking-redis",
+              id: "locking-redis",
+              is_default: true,
+              options: { redisUrl: REDIS_URL },
+            },
+          ],
+        },
+      },
+      {
         resolve: "@medusajs/medusa/workflow-engine-redis",
+        /* This module warns that `redis: { url }` is deprecated in favour of
+           `redisUrl`, but in 2.18 its loader still destructures `redis.url`
+           and throws "Cannot destructure property 'url'" if you follow the
+           advice. Keep the old shape until the loader catches up; the warning
+           is noise, not a bug. */
         options: { redis: { url: REDIS_URL } },
       },
     ]

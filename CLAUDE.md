@@ -13,10 +13,10 @@ pnpm build                   # build every package
 pnpm typecheck               # tsc --noEmit across the workspace
 ```
 
-Backend. The database has to be up first:
+Backend. Data services first:
 
 ```bash
-./scripts/postgres.ps1 start
+docker compose up -d
 ```
 
 ```bash
@@ -95,8 +95,10 @@ EUR is the store currency. BGN is never stored — it is derived at render time 
 
 ## Known constraints
 
-- **Docker cannot run on this machine: virtualisation is disabled in firmware,** so neither WSL2 nor Docker Desktop will start. Postgres 17 therefore runs from portable binaries under `%LOCALAPPDATA%\redpoint-postgres`, driven by `scripts/postgres.ps1`. Nothing is installed system-wide. `docker-compose.yml` and `apps/backend/Dockerfile` are written for the VPS but have never been executed; once virtualisation is enabled they replace the script entirely.
-- **No Redis locally.** `REDIS_URL` is deliberately empty in `apps/backend/.env` and Medusa falls back to in-memory. Leaving it set while nothing listens on 6379 makes migrations fail after 20 retries. On the VPS it must be set, because the worker needs a real event bus.
+- **Docker Desktop needs WSL2 on this machine.** Docker was installed before WSL was, so the engine hung forever on "Starting the Docker Engine" with an empty VM log. `wsl --install --no-distribution` plus a reboot fixed it. If the engine ever hangs like that again, check `wsl --status` before anything else. The CLI lives under `%LOCALAPPDATA%\Programs\DockerDesktop\resources\bin` (per-user install) and is on the user PATH.
+- **`scripts/postgres.ps1` is a fallback, not the normal path.** It drives portable Postgres binaries under `%LOCALAPPDATA%\redpoint-postgres`, from when Docker could not run here. `docker compose up -d` is what to use. Both bind port 5432, so never run them at once.
+- **Postgres needs `max_connections=300`.** Medusa opens a pool per module and briefly exceeds the default 100 during `db:migrate`, which fails with SQLSTATE 53300. The compose file sets it.
+- **The Redis workflow engine wants `redis: { url }`, not `redisUrl`.** It logs a deprecation warning telling you the opposite; following that advice makes the module fail to load in 2.18. The warning is noise.
 - **Medusa reads `.env` from `apps/backend/`, not the repo root.** The root `.env` is for docker-compose. Both exist; keep them in step. Write them without a BOM, or `loadEnv` mis-parses the first line.
 - **MikroORM must match Medusa exactly.** 2.18 pins all five `@mikro-orm` packages at 6.6.14 through `@medusajs/deps`. Any other version fails at migration time with "Bad @mikro-orm/knex version".
 - **`pnpm-workspace.yaml` carries two hoisting rules that Medusa forces.** Do not remove them without reading the comments there. `@types/react` is excluded from the hoist because the storefront is React 19 and the Medusa admin is React 18, and a shared hoist makes one of them compile against two copies of React's types. `@medusajs/*` is public-hoisted because Medusa's generated admin entry imports its first-party plugins by bare specifier and assumes npm's flat tree.

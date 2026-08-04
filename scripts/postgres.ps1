@@ -3,14 +3,15 @@
   Start, stop or inspect the local PostgreSQL used for development.
 
 .DESCRIPTION
-  Docker is not usable on this machine: virtualisation is disabled in firmware,
-  so neither WSL2 nor Docker Desktop can run. Instead, PostgreSQL 17 runs from
-  portable binaries under %LOCALAPPDATA%\redpoint-postgres. Nothing is
-  installed system-wide, there is no Windows service, and removing it is a
-  matter of deleting that folder.
+  FALLBACK ONLY. The normal way to get a database is `docker compose up -d`,
+  which also brings up Redis. Use this script only when Docker is unavailable.
 
-  Once virtualisation is enabled and Docker is available, `docker compose up -d`
-  replaces this entirely and this script can go.
+  It drives portable PostgreSQL 17 binaries under
+  %LOCALAPPDATA%\redpoint-postgres, from the period when Docker could not run
+  on this machine at all. Nothing is installed system-wide, there is no Windows
+  service, and removing it is a matter of deleting that folder.
+
+  Both this and the compose stack bind port 5432, so never run them together.
 
 .EXAMPLE
   ./scripts/postgres.ps1 start
