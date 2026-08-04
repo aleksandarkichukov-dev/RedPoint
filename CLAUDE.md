@@ -107,6 +107,16 @@ EUR is the store currency. BGN is never stored — it is derived at render time 
 - The old site sits behind Cloudflare and blocks after ~10 rapid requests. The scraper needs Playwright, 1.5–2s throttle and a resumable on-disk cache.
 - JSON-LD prices on the old site are unreliable (seen `16.00` where the page rendered `62.59`). Take the rendered DOM price and log every mismatch for the client to review.
 
+## Blocked on the client
+
+Phases 5 and 6 need credentials and decisions that live outside this repo.
+They are listed in [docs/client-requirements.md](docs/client-requirements.md).
+
+One of them reaches back into Phase 7: couriers price by weight, the old site
+publishes none, so the catalogue has none. If the client chooses per-product
+weights, the bulk module needs a weight column before its import format is
+settled.
+
 ## Phase discipline
 
 Each phase in the brief names the skills to invoke and its own acceptance criteria. Two that are easy to skip and expensive to skip:
