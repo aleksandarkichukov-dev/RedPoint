@@ -26,6 +26,9 @@ packages/catalog/dist/
 # typescript incremental build state
 *.tsbuildinfo
 
+# product photography the seed copies in for the local file provider
+apps/backend/static/
+
 # os / editor
 .DS_Store
 Thumbs.db

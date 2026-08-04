@@ -251,25 +251,54 @@ async function readColorImages(page: Page, pictureDir: string | null): Promise<s
   );
 }
 
+/**
+ * The in-store measured size table.
+ *
+ * It is laid out with sizes as COLUMNS, not rows: the first cell of each row is
+ * a label and the rest are that label's values across every size.
+ *
+ *   Размер            | 30 | 31 | 32 | ...
+ *   A Ширина (см.)    | 36 | 38 | 40 | ...
+ *   B Дължина (см.)   | 96 | 96 | 97 | ...
+ *
+ * Reading it row-wise, as an earlier version did, produces one bogus entry per
+ * label ("A Ширина (см.)" as a size, with the first two numbers as its
+ * measurements) and silently loses the real data. It has to be transposed.
+ */
 async function readSizeChart(page: Page): Promise<SizeChartRow[]> {
   return page.evaluate(() => {
     const table = document.querySelector("table.sizes_table_with_pic");
     if (!table) return [];
-    return Array.from(table.querySelectorAll("tr"))
-      .map((row) => Array.from(row.querySelectorAll("td")).map((c) => (c.textContent ?? "").trim()))
-      // Header rows have no <td>, so they drop out here.
-      .filter((cells) => cells.length >= 2 && cells[0])
-      .map((cells) => {
-        const width = /(\d+(?:[.,]\d+)?)/.exec((cells[1] ?? "").replace(/\s/g, ""))?.[1];
-        const length = /(\d+(?:[.,]\d+)?)/.exec((cells[2] ?? "").replace(/\s/g, ""))?.[1];
-        const widthCm = width ? Number(width.replace(",", ".")) : NaN;
-        const lengthCm = length ? Number(length.replace(",", ".")) : NaN;
+
+    const rows = Array.from(table.querySelectorAll("tr"))
+      .map((row) =>
+        Array.from(row.querySelectorAll("th, td")).map((c) => (c.textContent ?? "").trim()),
+      )
+      .filter((cells) => cells.length >= 2);
+
+    // Helpers stay inline: see the note on readSizes. Assigning an arrow to a
+    // const inside page.evaluate makes esbuild emit __name(), which does not
+    // exist in the browser and throws before a single row is read.
+    const sizeRow = rows.find((cells) => /Размер/i.test((cells[0] ?? "").replace(/\s+/g, " ")));
+    const widthRow = rows.find((cells) => /Ширина/i.test((cells[0] ?? "").replace(/\s+/g, " ")));
+    const lengthRow = rows.find((cells) => /Дължина/i.test((cells[0] ?? "").replace(/\s+/g, " ")));
+    if (!sizeRow) return [];
+
+    // Column 0 is the label, so sizes start at index 1.
+    return sizeRow
+      .slice(1)
+      .map((label, index) => {
+        const rawWidth = /(\d+(?:[.,]\d+)?)/.exec((widthRow?.[index + 1] ?? "").replace(/\s/g, ""))?.[1];
+        const rawLength = /(\d+(?:[.,]\d+)?)/.exec((lengthRow?.[index + 1] ?? "").replace(/\s/g, ""))?.[1];
+        const widthCm = rawWidth ? Number(rawWidth.replace(",", ".")) : NaN;
+        const lengthCm = rawLength ? Number(rawLength.replace(",", ".")) : NaN;
         return {
-          size: cells[0] as string,
+          size: label,
           widthCm: Number.isFinite(widthCm) && widthCm > 0 ? widthCm : null,
           lengthCm: Number.isFinite(lengthCm) && lengthCm > 0 ? lengthCm : null,
         };
-      });
+      })
+      .filter((row) => row.size !== "");
   });
 }
 
@@ -372,7 +401,14 @@ export async function parseProduct(
     const product: Product = {
       sku,
       externalId: link.externalId,
-      handle: `${slugify(name)}-${sku}`,
+      /* Product names on the old site already end in the article number
+         ("Дънки с декоративни кръпки и бели пръски 17487"), so appending it
+         unconditionally yields handles like `...-17487-17487`. It is still
+         appended when the name does not carry it, because the handle has to
+         stay unique. */
+      handle: slugify(name).endsWith(`-${sku}`)
+        ? slugify(name)
+        : `${slugify(name)}-${sku}`,
       name,
       url: link.url,
       categoryKeys,

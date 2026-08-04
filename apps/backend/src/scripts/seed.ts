@@ -3,6 +3,7 @@ import path from "node:path";
 import type { ExecArgs, RemoteQueryFunction } from "@medusajs/framework/types";
 import { ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils";
 import {
+  createApiKeysWorkflow,
   createInventoryLevelsWorkflow,
   createProductCategoriesWorkflow,
   createProductsWorkflow,
@@ -12,11 +13,14 @@ import {
   createShippingProfilesWorkflow,
   createStockLocationsWorkflow,
   createTaxRegionsWorkflow,
+  linkSalesChannelsToApiKeyWorkflow,
   linkSalesChannelsToStockLocationWorkflow,
   updateStoresWorkflow,
 } from "@medusajs/medusa/core-flows";
 import { CATEGORY_TREE, validateProductsFile, type CategoryNode } from "@redpoint/catalog";
-import { mapProduct, toStaticPath, type MappingWarning } from "./map-product.js";
+// No .js extension: this is a CommonJS project and `medusa exec` resolves
+// against the TypeScript sources, where only map-product.ts exists.
+import { mapProduct, toStaticPath, type MappingWarning } from "./map-product";
 
 /**
  * Seeds the store from `seed/products.json`.
@@ -177,9 +181,13 @@ export default async function seed({ container }: ExecArgs) {
     shippingProfile = result[0]!;
   }
 
-  const existingFulfillmentSets = await fulfillmentModule.listFulfillmentSets({
-    name: "Доставка България",
-  });
+  /* The relations have to be requested explicitly. Without them a re-run finds
+     the existing set, sees no service_zones on it, and dies claiming the set
+     has no zone even though it does. */
+  const existingFulfillmentSets = await fulfillmentModule.listFulfillmentSets(
+    { name: "Доставка България" },
+    { relations: ["service_zones"] },
+  );
   let fulfillmentSet = existingFulfillmentSets[0];
   if (!fulfillmentSet) {
     fulfillmentSet = await fulfillmentModule.createFulfillmentSets({
@@ -231,6 +239,30 @@ export default async function seed({ container }: ExecArgs) {
     });
   }
   logger.info("shipping options ready (placeholders until Phase 6)");
+
+  // --- publishable api key --------------------------------------------------
+  // The storefront cannot read the Store API without one, so it belongs in the
+  // seed rather than in a manual step someone has to remember in Phase 4.
+
+  const { data: existingKeys } = await query.graph({
+    entity: "api_key",
+    fields: ["id", "title", "token"],
+  });
+  let publishableKey = existingKeys.find((key) => key.title === SALES_CHANNEL_NAME);
+
+  if (!publishableKey) {
+    const { result } = await createApiKeysWorkflow(container).run({
+      input: {
+        api_keys: [{ title: SALES_CHANNEL_NAME, type: "publishable", created_by: "seed" }],
+      },
+    });
+    publishableKey = result[0]!;
+    await linkSalesChannelsToApiKeyWorkflow(container).run({
+      input: { id: publishableKey.id, add: [salesChannel.id] },
+    });
+    logger.info("created publishable api key");
+  }
+  logger.info(`storefront key: ${publishableKey.token}`);
 
   // --- categories -----------------------------------------------------------
 

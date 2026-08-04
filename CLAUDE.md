@@ -11,7 +11,30 @@ pnpm install                 # workspace install
 pnpm dev                     # storefront on :3000
 pnpm build                   # build every package
 pnpm typecheck               # tsc --noEmit across the workspace
-docker compose up -d         # postgres + redis
+```
+
+Backend. The database has to be up first:
+
+```bash
+./scripts/postgres.ps1 start
+```
+
+```bash
+pnpm --filter @redpoint/backend exec medusa db:migrate
+```
+
+```bash
+pnpm --filter @redpoint/backend seed
+```
+
+```bash
+pnpm --filter @redpoint/backend dev
+```
+
+Admin at `http://localhost:9000/app`. It needs a user before you can log in, which is a one-off:
+
+```bash
+pnpm --filter @redpoint/backend exec medusa user -e you@example.com -p yourpassword
 ```
 
 Scraper (Phase 1, one-off). It hits the live old site behind Cloudflare, so read [tools/scraper/README.md](tools/scraper/README.md) before running it:
@@ -72,7 +95,10 @@ EUR is the store currency. BGN is never stored — it is derived at render time 
 
 ## Known constraints
 
-- **Docker Desktop is not installed locally, and neither is WSL.** `docker-compose.yml` and `apps/backend/Dockerfile` are written but have never been executed. `medusa build` succeeds, so the config and modules are valid, but no database has ever seen this schema and `pnpm seed` has never run.
+- **Docker cannot run on this machine: virtualisation is disabled in firmware,** so neither WSL2 nor Docker Desktop will start. Postgres 17 therefore runs from portable binaries under `%LOCALAPPDATA%\redpoint-postgres`, driven by `scripts/postgres.ps1`. Nothing is installed system-wide. `docker-compose.yml` and `apps/backend/Dockerfile` are written for the VPS but have never been executed; once virtualisation is enabled they replace the script entirely.
+- **No Redis locally.** `REDIS_URL` is deliberately empty in `apps/backend/.env` and Medusa falls back to in-memory. Leaving it set while nothing listens on 6379 makes migrations fail after 20 retries. On the VPS it must be set, because the worker needs a real event bus.
+- **Medusa reads `.env` from `apps/backend/`, not the repo root.** The root `.env` is for docker-compose. Both exist; keep them in step. Write them without a BOM, or `loadEnv` mis-parses the first line.
+- **MikroORM must match Medusa exactly.** 2.18 pins all five `@mikro-orm` packages at 6.6.14 through `@medusajs/deps`. Any other version fails at migration time with "Bad @mikro-orm/knex version".
 - **`pnpm-workspace.yaml` carries two hoisting rules that Medusa forces.** Do not remove them without reading the comments there. `@types/react` is excluded from the hoist because the storefront is React 19 and the Medusa admin is React 18, and a shared hoist makes one of them compile against two copies of React's types. `@medusajs/*` is public-hoisted because Medusa's generated admin entry imports its first-party plugins by bare specifier and assumes npm's flat tree.
 - **`ts-node` is an explicit dependency of the backend.** The Medusa CLI needs it to read `medusa-config.ts`; under npm it is found transitively, under pnpm it is not.
 - **Node is 24.x locally.** Medusa 2.18 declares `engines: node >=20`, so this is allowed, but it is ahead of what Medusa tests against. If the backend behaves strangely, try Node 22 before debugging anything else.
