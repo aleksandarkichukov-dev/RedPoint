@@ -10,6 +10,9 @@ export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   helper?: string;
   /** When set, the field renders its error state and announces it. */
   error?: string;
+  /** `inverted` is for the black panels, where the default black label and
+   *  black error stroke would disappear into the background. */
+  tone?: "default" | "inverted";
 }
 
 /**
@@ -29,8 +32,10 @@ export function Input({
   error,
   className,
   id,
+  tone = "default",
   ...props
 }: InputProps) {
+  const inverted = tone === "inverted";
   const generatedId = useId();
   const inputId = id ?? generatedId;
   const helperId = `${inputId}-helper`;
@@ -42,7 +47,10 @@ export function Input({
 
   return (
     <div className="flex flex-col gap-2">
-      <label htmlFor={inputId} className="font-body text-nav text-primary">
+      <label
+        htmlFor={inputId}
+        className={cn("font-body text-nav", inverted ? "text-white" : "text-primary")}
+      >
         {label}
       </label>
 
@@ -54,14 +62,18 @@ export function Input({
           "w-full rounded-none border-0 bg-surface px-4 py-3",
           "font-body text-input text-body-text",
           "placeholder:text-muted-text",
-          error && "outline-2 -outline-offset-2 outline-primary",
+          error && "outline-2 -outline-offset-2",
+          error && (inverted ? "outline-white" : "outline-primary"),
           className,
         )}
         {...props}
       />
 
       {helper && (
-        <p id={helperId} className="font-body text-body text-muted-text">
+        <p
+          id={helperId}
+          className={cn("font-body text-body", inverted ? "text-white/60" : "text-muted-text")}
+        >
           {helper}
         </p>
       )}
@@ -70,7 +82,10 @@ export function Input({
         <p
           id={errorId}
           role="alert"
-          className="font-body text-body font-semibold text-primary"
+          className={cn(
+            "font-body text-body font-semibold",
+            inverted ? "text-white" : "text-primary",
+          )}
         >
           {error}
         </p>

@@ -43,7 +43,14 @@ export function ProductCard({
   const hiddenColorCount = colors.length - visibleColors.length;
 
   return (
-    <article className={cn("group flex flex-col gap-3", className)}>
+    /* `relative` is load-bearing. The card contains absolutely positioned
+       descendants, including the `sr-only` colour names, and without a
+       positioning context here they resolve against the initial containing
+       block. Absolutely positioned elements are not clipped by an unpositioned
+       overflow ancestor, so inside a horizontal rail the ones belonging to
+       off-screen cards land past the viewport and give the whole page a
+       horizontal scrollbar. */
+    <article className={cn("group relative flex flex-col gap-3", className)}>
       <div className="relative">
         <Link href={href} className="block" tabIndex={-1} aria-hidden>
           {/* Flat neutral block behind the photography is the only background
