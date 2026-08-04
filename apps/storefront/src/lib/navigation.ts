@@ -1,9 +1,10 @@
 /**
  * Navigation tree for the storefront.
  *
- * Static for now. Phase 4 replaces this with the real ProductCategory tree from
- * Medusa; the shape here deliberately matches `packages/catalog` so that swap
- * is a data source change, not a component rewrite.
+ * Mirrors the real category tree in `@redpoint/catalog`, which was read off the
+ * old site's live menu. Phase 4 replaces this with the ProductCategory tree
+ * from Medusa; the shape here matches, so that swap is a data source change and
+ * not a component rewrite.
  */
 
 export interface NavLink {
@@ -31,13 +32,12 @@ export const NAV_GROUPS: NavGroup[] = [
     href: "/men",
     columns: [
       {
-        label: "Връхни",
+        label: "Якета",
         href: "/men/outerwear",
         links: [
           { label: "Якета", href: "/men/jackets" },
-          { label: "Грейки", href: "/men/padded-jackets" },
           { label: "Суичъри", href: "/men/sweatshirts" },
-          { label: "Пуловери", href: "/men/sweaters" },
+          { label: "Грейки", href: "/men/padded-jackets" },
         ],
       },
       {
@@ -46,15 +46,19 @@ export const NAV_GROUPS: NavGroup[] = [
         links: [
           { label: "Тениски", href: "/men/tshirts" },
           { label: "Тениски с яки", href: "/men/polo" },
-          { label: "Ризи", href: "/men/shirts" },
           { label: "Ризи с къс ръкав", href: "/men/short-sleeve-shirts" },
+          { label: "Ризи", href: "/men/shirts" },
+          { label: "Блузи", href: "/men/blouses" },
+          { label: "Пуловери", href: "/men/sweaters" },
         ],
       },
       {
         label: "Панталони",
-        href: "/men/trousers",
+        href: "/men/bottoms",
         links: [
           { label: "Дънки", href: "/men/jeans" },
+          { label: "Панталони", href: "/men/trousers" },
+          { label: "Карго панталони", href: "/men/cargo" },
           { label: "Къси панталони", href: "/men/shorts" },
           { label: "Къси дънки", href: "/men/denim-shorts" },
         ],
@@ -63,11 +67,12 @@ export const NAV_GROUPS: NavGroup[] = [
         label: "Още",
         href: "/men/accessories",
         links: [
-          { label: "Обувки", href: "/men/shoes" },
-          { label: "Сандали и чехли", href: "/men/sandals" },
           { label: "Колани", href: "/men/belts" },
           { label: "Портмонета", href: "/men/wallets" },
-          { label: "Бельо", href: "/men/underwear" },
+          { label: "Гривни", href: "/men/bracelets" },
+          { label: "Сандали и чехли", href: "/men/sandals" },
+          { label: "Боксерки", href: "/men/boxers" },
+          { label: "Бански", href: "/men/swimwear" },
         ],
       },
     ],
@@ -100,6 +105,6 @@ export const NAV_GROUPS: NavGroup[] = [
   },
 ];
 
-/** Kept out of NAV_GROUPS: it has no mega menu and it is the one nav item
+/** Kept out of NAV_GROUPS: it has no mega menu, and it is the one nav item
  *  allowed to carry the accent colour. */
 export const SALE_LINK: NavLink = { label: "Разпродажба", href: "/sale" };

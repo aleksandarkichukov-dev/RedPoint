@@ -1,23 +1,27 @@
 /**
- * Category tree of the old site, taken from its navigation (section 5 of the
- * handoff brief).
+ * Category tree of the old site.
  *
- * Only the ids and the hierarchy are hardcoded. The URL slugs are NOT: the old
- * routes look like `/category/{id}/{path}` and nothing guarantees the path
- * segment is stable or that our transcription of it is right. The scraper
- * discovers real category URLs from the live navigation and matches them back
- * to these ids, so a renamed slug does not silently produce an empty run.
+ * Read off the live mega menu, NOT transcribed from section 5 of the brief.
+ * The brief's version is wrong in ways that matter: it treats group ids as
+ * leaves, files Суичъри under Блузи instead of Якета, misses Блузи and
+ * Панталони as subcategories in their own right, and lists Карго Панталони
+ * (110) as one of the Панталони group's ids rather than a subcategory of it.
+ * Crawling that version would have hit group pages and missed real leaves.
  *
- * Some categories carry several ids because the old navigation lists the same
- * label more than once. All of them are crawled; products are de-duplicated by
- * sku afterwards.
+ * Group nodes carry the id the menu uses for their heading. They are not
+ * crawled: a group page lists everything its children list, so visiting both
+ * only spends Cloudflare budget on duplicates.
+ *
+ * Only ids and hierarchy are hardcoded. URLs are discovered from the live
+ * navigation at run time, so a renamed slug cannot produce a silently empty
+ * crawl.
  */
 
 export interface CategoryNode {
-  /** Stable key used for the Medusa handle in Phase 2. */
+  /** Stable key, used as the Medusa handle. */
   key: string;
   name: string;
-  ids: number[];
+  id: number;
   children?: CategoryNode[];
 }
 
@@ -25,65 +29,79 @@ export const CATEGORY_TREE: CategoryNode[] = [
   {
     key: "men",
     name: "Мъже",
-    ids: [5],
+    id: 5,
     children: [
-      { key: "men-jackets", name: "Якета", ids: [14, 39] },
-      { key: "men-padded-jackets", name: "Грейки", ids: [42] },
+      {
+        key: "men-outerwear",
+        name: "Якета",
+        id: 14,
+        children: [
+          { key: "men-jackets", name: "Якета", id: 39 },
+          { key: "men-sweatshirts", name: "Суичъри", id: 32 },
+          { key: "men-padded-jackets", name: "Грейки", id: 42 },
+        ],
+      },
       {
         key: "men-tops",
         name: "Блузи",
-        ids: [26, 28],
+        id: 26,
         children: [
-          { key: "men-tshirts", name: "Тениски", ids: [33] },
-          { key: "men-polo", name: "Тениски с яки", ids: [43] },
-          { key: "men-shirts", name: "Ризи", ids: [30] },
-          { key: "men-short-sleeve-shirts", name: "Ризи с къс ръкав", ids: [35] },
-          { key: "men-sweaters", name: "Пуловери", ids: [29] },
-          { key: "men-sweatshirts", name: "Суичъри", ids: [32] },
+          { key: "men-tshirts", name: "Тениски", id: 33 },
+          { key: "men-polo", name: "Тениски с яки", id: 43 },
+          { key: "men-short-sleeve-shirts", name: "Ризи с къс ръкав", id: 35 },
+          { key: "men-shirts", name: "Ризи", id: 30 },
+          { key: "men-blouses", name: "Блузи", id: 28 },
+          { key: "men-sweaters", name: "Пуловери", id: 29 },
         ],
       },
       {
-        key: "men-trousers",
+        key: "men-bottoms",
         name: "Панталони",
-        ids: [15, 31, 110],
+        id: 15,
         children: [
-          { key: "men-jeans", name: "Дънки", ids: [27] },
-          { key: "men-shorts", name: "Къси панталони", ids: [34] },
-          { key: "men-denim-shorts", name: "Къси дънки", ids: [62] },
+          { key: "men-denim-shorts", name: "Къси дънки", id: 62 },
+          { key: "men-shorts", name: "Къси панталони", id: 34 },
+          { key: "men-jeans", name: "Дънки", id: 27 },
+          { key: "men-trousers", name: "Панталони", id: 31 },
+          { key: "men-cargo", name: "Карго панталони", id: 110 },
         ],
       },
-      { key: "men-shoes", name: "Обувки", ids: [45] },
-      { key: "men-sandals", name: "Сандали и чехли", ids: [94] },
       {
         key: "men-accessories",
         name: "Аксесоари",
-        ids: [17],
+        id: 17,
         children: [
-          { key: "men-belts", name: "Колани", ids: [18] },
-          { key: "men-wallets", name: "Портмонета", ids: [19] },
-          { key: "men-bracelets", name: "Гривни", ids: [106] },
+          { key: "men-belts", name: "Колани", id: 18 },
+          { key: "men-wallets", name: "Портмонета", id: 19 },
+          { key: "men-bracelets", name: "Гривни", id: 106 },
         ],
+      },
+      {
+        key: "men-shoes",
+        name: "Обувки",
+        id: 45,
+        children: [{ key: "men-sandals", name: "Сандали и чехли", id: 94 }],
       },
       {
         key: "men-underwear",
         name: "Бельо",
-        ids: [83],
+        id: 83,
         children: [
-          { key: "men-boxers", name: "Боксерки", ids: [97] },
-          { key: "men-swimwear", name: "Бански", ids: [99] },
+          { key: "men-swimwear", name: "Бански", id: 99 },
+          { key: "men-boxers", name: "Боксерки", id: 97 },
         ],
       },
-      { key: "men-sale", name: "Разпродажба", ids: [81] },
+      { key: "men-sale", name: "Разпродажба", id: 81 },
     ],
   },
   {
     key: "women",
     name: "Жени",
-    ids: [6],
+    id: 6,
     children: [
-      { key: "women-accessories", name: "Аксесоари", ids: [38] },
-      { key: "women-underwear", name: "Бельо", ids: [111] },
-      { key: "women-sale", name: "Разпродажба", ids: [82] },
+      { key: "women-accessories", name: "Аксесоари", id: 38 },
+      { key: "women-underwear", name: "Бельо", id: 111 },
+      { key: "women-sale", name: "Разпродажба", id: 82 },
     ],
   },
 ];
@@ -93,39 +111,36 @@ export interface FlatCategory {
   name: string;
   id: number;
   parentKey: string | null;
-  /** Depth 0 is a top-level gender node. */
+  /** Depth 0 is a gender root. */
   depth: number;
 }
 
-/** Flattens the tree to one entry per category id, which is what the crawler
- *  iterates over. */
 export function flattenCategories(
   nodes: CategoryNode[] = CATEGORY_TREE,
   parentKey: string | null = null,
   depth = 0,
 ): FlatCategory[] {
   return nodes.flatMap((node) => [
-    ...node.ids.map((id) => ({
-      key: node.key,
-      name: node.name,
-      id,
-      parentKey,
-      depth,
-    })),
+    { key: node.key, name: node.name, id: node.id, parentKey, depth },
     ...flattenCategories(node.children ?? [], node.key, depth + 1),
   ]);
 }
 
+function findNode(nodes: CategoryNode[], key: string): CategoryNode | undefined {
+  for (const node of nodes) {
+    if (node.key === key) return node;
+    const found = findNode(node.children ?? [], key);
+    if (found) return found;
+  }
+  return undefined;
+}
+
 /**
- * Leaf categories only. Parent nodes on the old site list everything their
- * children list, so crawling both just burns Cloudflare budget on duplicates.
- * The gender roots and the sale categories are kept because sale is where the
- * discounted prices live and it is not a child of anything.
+ * Leaves only. A group page lists everything its children list, so crawling
+ * both doubles the request count for nothing.
  */
 export function crawlableCategories(): FlatCategory[] {
-  const all = flattenCategories();
-  const parentKeys = new Set(
-    all.filter((c) => c.parentKey !== null).map((c) => c.parentKey as string),
+  return flattenCategories().filter(
+    (category) => !findNode(CATEGORY_TREE, category.key)?.children?.length,
   );
-  return all.filter((c) => !parentKeys.has(c.key) || c.key.endsWith("-sale"));
 }
