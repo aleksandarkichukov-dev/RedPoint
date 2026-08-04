@@ -155,7 +155,12 @@ async function main(): Promise<number> {
         categoryKeysByUrl.set(link.url, keys);
       }
 
-      console.log(`  ${category.name} (${category.id}): ${links.length} products`);
+      // Products and urls are not the same number: one product is one url per
+      // colour, so a category of 6 products can be 8 or more pages.
+      const productCount = new Set(links.map((link) => link.externalId)).size;
+      console.log(
+        `  ${category.name} (${category.id}): ${productCount} products, ${links.length} urls`,
+      );
     }
 
     console.log(`\nparsing ${linksByUrl.size} unique products`);

@@ -69,8 +69,8 @@ export class Session {
    */
   async fetchPage(
     url: string,
-    options: { force?: boolean } = {},
-  ): Promise<{ html: string; fromCache: boolean }> {
+    options: { force?: boolean; missingIsOk?: boolean } = {},
+  ): Promise<{ html: string; fromCache: boolean } | null> {
     if (!options.force) {
       const cached = await readCachedPage(url);
       if (cached) {
@@ -93,6 +93,15 @@ export class Session {
         if (status === 403 || status === 429 || status === 503) {
           throw new Error(`blocked with HTTP ${status}`);
         }
+
+        /* 404 is an answer, not a failure. Paginating past the end of a small
+           category returns one, and retrying it three times with a 30s
+           cool-off wastes over a minute per category before failing the run
+           anyway. Callers that expect it pass missingIsOk. */
+        if (status === 404) {
+          if (options.missingIsOk) return null;
+          throw new Error("HTTP 404");
+        }
         if (status >= 400) {
           throw new Error(`HTTP ${status}`);
         }
@@ -102,6 +111,8 @@ export class Session {
         return { html, fromCache: false };
       } catch (error) {
         lastError = error;
+        // Nothing below 500 except the rate-limit codes is worth retrying.
+        if (String(error).includes("HTTP 404")) break;
         if (attempt < CONFIG.maxRetries) {
           console.warn(
             `  retry ${attempt}/${CONFIG.maxRetries - 1} for ${url}: ${String(error)}`,
