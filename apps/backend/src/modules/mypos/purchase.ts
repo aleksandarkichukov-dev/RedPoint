@@ -10,18 +10,21 @@ import { sign, type MyposParams } from "./signature";
  * lines silently breaks every payment.
  */
 
+/** Money arrives from Medusa as a BigNumber, which is a string or an object. */
+type Money = number | string;
+
 export interface PurchaseLine {
   name: string;
   quantity: number;
   /** Unit price, tax inclusive, as the shopper saw it. */
-  unitPrice: number;
+  unitPrice: Money;
 }
 
 export interface PurchaseRequest {
   orderId: string;
   /** Goods only. Delivery is a separate field myPOS adds to the total. */
-  itemsTotal: number;
-  deliveryTotal: number;
+  itemsTotal: Money;
+  deliveryTotal: Money;
   currency: string;
   lines: PurchaseLine[];
   customer: {
@@ -35,9 +38,22 @@ export interface PurchaseRequest {
   };
 }
 
-/** myPOS wants plain decimals with two places, not locale-formatted money. */
-function amount(value: number): string {
-  return value.toFixed(2);
+/**
+ * myPOS wants plain decimals with two places, not locale-formatted money.
+ *
+ * Coerces rather than trusting the type. Medusa hands money back as BigNumber
+ * values that are objects or strings depending on the query, and calling
+ * toFixed on one throws deep inside the request builder — where the message
+ * says nothing about money.
+ */
+function amount(value: number | string, field: string): string {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    // Names the field. "null is not an amount" alone sends you reading the
+    // whole builder to work out which of eight money values was missing.
+    throw new Error(`myPOS purchase: ${field} is ${JSON.stringify(value)}, not an amount`);
+  }
+  return numeric.toFixed(2);
 }
 
 export interface SignedPurchase {
@@ -61,7 +77,7 @@ export function buildPurchase(request: PurchaseRequest): SignedPurchase {
     SID: config.sid,
     WalletNumber: config.wallet,
     KeyIndex: config.keyIndex,
-    Amount: amount(request.itemsTotal + request.deliveryTotal),
+    Amount: amount(Number(request.itemsTotal) + Number(request.deliveryTotal), "Amount"),
     Currency: request.currency.toUpperCase(),
     OrderID: request.orderId,
     URL_OK: `${config.storefrontUrl}/order/confirm/${request.orderId}`,
@@ -87,12 +103,12 @@ export function buildPurchase(request: PurchaseRequest): SignedPurchase {
     const n = index + 1;
     fields[`Article_${n}`] = line.name;
     fields[`Quantity_${n}`] = String(line.quantity);
-    fields[`Price_${n}`] = amount(line.unitPrice);
-    fields[`Amount_${n}`] = amount(line.unitPrice * line.quantity);
+    fields[`Price_${n}`] = amount(line.unitPrice, `Price_${n}`);
+    fields[`Amount_${n}`] = amount(Number(line.unitPrice) * line.quantity, `Amount_${n}`);
     fields[`Currency_${n}`] = request.currency.toUpperCase();
   });
 
-  fields.Delivery = amount(request.deliveryTotal);
+  fields.Delivery = amount(request.deliveryTotal, "Delivery");
   fields.Signature = sign(fields, config.privateKey);
 
   return { url: config.checkoutUrl, fields };

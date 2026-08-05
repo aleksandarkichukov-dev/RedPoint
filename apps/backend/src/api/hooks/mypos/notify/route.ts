@@ -1,5 +1,6 @@
 import type { MedusaRequest, MedusaResponse } from "@medusajs/framework/http";
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils";
+import { capturePaymentWorkflow } from "@medusajs/medusa/core-flows";
 import { getMyposConfig } from "../../../../modules/mypos/config";
 import { verify, type MyposParams } from "../../../../modules/mypos/signature";
 
@@ -59,10 +60,70 @@ export async function POST(req: MedusaRequest, res: MedusaResponse): Promise<voi
       `transaction ${body.IPC_Trnref}`,
   );
 
-  /* Capturing the payment against the Medusa order lands with the payment
-     provider module. Until then the signature gate, the store check and the
-     acknowledgement are real and tested, and the log records every genuine
-     notification — so nothing is silently lost while that is built. */
+  const query = req.scope.resolve(ContainerRegistrationKeys.QUERY);
+  const { data } = await query.graph({
+    entity: "order",
+    filters: { display_id: Number(body.OrderID) },
+    fields: [
+      "id",
+      "display_id",
+      "total",
+      "currency_code",
+      "payment_collections.id",
+      "payment_collections.status",
+      "payment_collections.payments.id",
+      "payment_collections.payments.captured_at",
+    ],
+  });
+
+  const order = data[0];
+  if (!order) {
+    /* A 200 anyway. myPOS retry anything else, and retrying will not conjure
+       an order that does not exist — it would just repeat forever. The warning
+       is the thing a human needs to see. */
+    logger.error(`myPOS notify: no order with display_id ${body.OrderID}; payment NOT recorded`);
+    res.status(200).type("text/plain").send("OK");
+    return;
+  }
+
+  /* The amount myPOS charged must equal what the order says. If it does not,
+     something is wrong that no amount of retrying fixes, and quietly marking
+     the order paid would hide it. */
+  const charged = Number(body.Amount);
+  if (Number.isFinite(charged) && Math.abs(charged - Number(order.total)) > 0.01) {
+    logger.error(
+      `myPOS notify: order ${body.OrderID} totals ${order.total} but ${charged} was charged; ` +
+        "payment NOT recorded, needs a human",
+    );
+    res.status(200).type("text/plain").send("OK");
+    return;
+  }
+
+  const payment = (order.payment_collections ?? [])
+    .flatMap((collection: { payments?: { id: string; captured_at?: string | null }[] }) =>
+      collection.payments ?? [],
+    )
+    .find((entry: { captured_at?: string | null }) => !entry.captured_at);
+
+  if (!payment) {
+    // Already captured: myPOS retry until they get an OK, so this is normal.
+    logger.info(`myPOS notify: order ${body.OrderID} already captured, nothing to do`);
+    res.status(200).type("text/plain").send("OK");
+    return;
+  }
+
+  try {
+    await capturePaymentWorkflow(req.scope).run({
+      input: { payment_id: payment.id },
+    });
+    logger.info(`myPOS notify: captured payment for order ${body.OrderID}`);
+  } catch (error) {
+    /* Not 200. This is the one failure worth a retry: the signature was good,
+       the order is right, and the capture itself went wrong. */
+    logger.error(`myPOS notify: capture failed for order ${body.OrderID}: ${error}`);
+    res.status(500).type("text/plain").send("CAPTURE FAILED");
+    return;
+  }
 
   res.status(200).type("text/plain").send("OK");
 }

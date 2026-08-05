@@ -9,6 +9,13 @@ import type { ShippingOption } from "@/lib/checkout";
 import { formatEur } from "@/lib/price";
 import { useRouter } from "next/navigation";
 
+const PAYMENT_METHODS = [
+  { value: "cod", label: "Наложен платеж", note: "без такса" },
+  { value: "card", label: "Плащане с карта", note: "чрез myPOS" },
+] as const;
+
+type PaymentMethod = (typeof PAYMENT_METHODS)[number]["value"];
+
 /**
  * One page, three sections, no steps.
  *
@@ -28,6 +35,7 @@ export function CheckoutForm({
     {},
   );
   const [delivery, setDelivery] = useState(selectedOptionId ?? "");
+  const [payment, setPayment] = useState<PaymentMethod>("cod");
   const [, startTransition] = useTransition();
   const router = useRouter();
 
@@ -127,20 +135,42 @@ export function CheckoutForm({
       <section className="flex flex-col gap-4">
         <h2 className="text-subhead font-bold text-primary uppercase">3 · Плащане</h2>
 
-        {/* One method for now. myPOS joins it as a second radio once the client's
-            credentials are in place; the layout already allows for it. */}
-        <ul className="flex flex-col border-y border-border">
-          <li className="relative flex items-center gap-3 py-4 pr-4 pl-5">
-            <span aria-hidden className="absolute inset-y-0 left-0 w-[3px] bg-primary" />
-            <span className="flex-1 font-body text-nav font-semibold text-primary">
-              Наложен платеж
-            </span>
-            <span className="font-body text-body text-muted-text">без такса</span>
-          </li>
+        <ul className="flex flex-col divide-y divide-border border-y border-border">
+          {PAYMENT_METHODS.map((method) => (
+            <li key={method.value}>
+              <label
+                className={cn(
+                  "relative flex cursor-pointer items-center gap-3 py-4 pr-4 pl-5",
+                  payment === method.value && "font-semibold",
+                )}
+              >
+                <span
+                  aria-hidden
+                  className={cn(
+                    "absolute inset-y-0 left-0 w-[3px] origin-left bg-primary",
+                    "transition-transform duration-(--duration-fast)",
+                    payment === method.value ? "scale-x-100" : "scale-x-0",
+                  )}
+                />
+                <input
+                  type="radio"
+                  name="paymentMethod"
+                  value={method.value}
+                  checked={payment === method.value}
+                  onChange={() => setPayment(method.value)}
+                  className="sr-only"
+                />
+                <span className="flex-1 font-body text-nav text-primary">{method.label}</span>
+                <span className="font-body text-body text-muted-text">{method.note}</span>
+              </label>
+            </li>
+          ))}
         </ul>
+
         <p className="font-body text-body text-muted-text">
-          Плащате в брой на куриера при получаване. Плащането с карта през myPOS
-          се добавя, щом получим достъпа от магазина.
+          {payment === "card"
+            ? "Ще ви прехвърлим към защитената страница на myPOS. Данните на картата не минават през нашия сайт."
+            : "Плащате в брой на куриера при получаване."}
         </p>
       </section>
 

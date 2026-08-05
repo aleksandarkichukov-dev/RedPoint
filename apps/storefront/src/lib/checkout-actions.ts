@@ -79,6 +79,8 @@ export async function placeOrderAction(
   const shippingOptionId = value("shippingOptionId");
   if (!shippingOptionId) return { error: "Изберете начин на доставка." };
 
+  const payWithCard = value("paymentMethod") === "card";
+
   let orderId: string;
   try {
     await setContactAndAddress(cartId, fields.email, fields);
@@ -103,5 +105,10 @@ export async function placeOrderAction(
   // The cart is spent once it becomes an order; a stale cookie would show the
   // next visitor on this browser a basket they cannot check out.
   await clearCartId();
-  redirect(`/order/${orderId}`);
+
+  /* Card payments detour through myPOS. The order exists first and is created
+     unpaid, which is what lets myPOS echo an order number back and what leaves
+     an abandoned payment visible in the admin rather than vanishing with the
+     cart. The payment is recorded only when their signed notification arrives. */
+  redirect(payWithCard ? `/checkout/pay/${orderId}` : `/order/${orderId}`);
 }
