@@ -1,5 +1,11 @@
 import type { RemoteQueryFunction } from "@medusajs/framework/types";
-import { matchPhotos, parseBulkRows, type BulkIssue, type BulkProduct } from "@redpoint/catalog";
+import {
+  matchPhotos,
+  parseBulkRows,
+  parsePhotoName,
+  type BulkIssue,
+  type BulkProduct,
+} from "@redpoint/catalog";
 import { readWorkbook } from "./workbook";
 import { readPhotoArchive, photoNames } from "./photos";
 import { planImport, type ExistingProduct, type ImportPlan } from "./plan";
@@ -47,6 +53,101 @@ export async function reviewUpload(
 
   const existing = await loadExisting(query);
   return { products, issues: allIssues, plan: planImport(products, existing), photos };
+}
+
+export interface PhotoOnlyReview {
+  /** Articles that exist and will have their photography replaced. */
+  articles: { sku: string; title: string; productId: string; colors: string[]; photoCount: number }[];
+  issues: { row: number; message: string }[];
+  total: number;
+}
+
+/**
+ * A photo upload with no spreadsheet.
+ *
+ * The common case by far: the article already exists and only its photography
+ * is new. Requiring a spreadsheet to change a picture means retyping the price
+ * and the category to say nothing about either.
+ *
+ * Only ever touches articles that already exist. A photograph cannot say what
+ * something costs or which category it belongs to, so a new product still
+ * needs a sheet — that is arithmetic, not a limitation worth engineering
+ * around, and pretending otherwise would create half-made products.
+ */
+export async function reviewPhotosOnly(
+  query: MedusaQuery,
+  archive: Buffer,
+): Promise<PhotoOnlyReview> {
+  const photos = await readPhotoArchive(archive);
+  const issues: PhotoOnlyReview["issues"] = [];
+
+  const { data: products } = await query.graph({
+    entity: "product",
+    fields: ["id", "title", "external_id", "variants.options.value", "variants.options.option.title"],
+  });
+
+  const known = new Map<string, { id: string; title: string; colors: Set<string> }>();
+  for (const product of products) {
+    if (!product.external_id) continue;
+    const colors = new Set<string>();
+    for (const variant of product.variants ?? []) {
+      for (const option of variant.options ?? []) {
+        if (option.option?.title === "Цвят" && option.value) colors.add(option.value);
+      }
+    }
+    known.set(product.external_id, { id: product.id, title: product.title, colors });
+  }
+
+  const grouped = new Map<string, { colors: Set<string>; count: number }>();
+
+  for (const photo of photos) {
+    const parsed = parsePhotoName(photo.fileName);
+    if (!parsed) {
+      issues.push({
+        row: 0,
+        message: `"${photo.fileName}" не следва формата {артикул}_{цвят}_{номер}.jpg и се пропуска`,
+      });
+      continue;
+    }
+
+    const product = known.get(parsed.sku);
+    if (!product) {
+      issues.push({
+        row: 0,
+        message:
+          `Артикул ${parsed.sku} го няма в магазина. ` +
+          "Нов артикул се качва с таблица, защото снимка не носи цена и категория.",
+      });
+      continue;
+    }
+
+    if (!product.colors.has(parsed.color)) {
+      issues.push({
+        row: 0,
+        message:
+          `Артикул ${parsed.sku} няма цвят "${parsed.color}". ` +
+          `Има: ${[...product.colors].join(", ")}`,
+      });
+      continue;
+    }
+
+    const entry = grouped.get(parsed.sku) ?? { colors: new Set<string>(), count: 0 };
+    entry.colors.add(parsed.color);
+    entry.count += 1;
+    grouped.set(parsed.sku, entry);
+  }
+
+  return {
+    articles: [...grouped.entries()].map(([sku, entry]) => ({
+      sku,
+      title: known.get(sku)!.title,
+      productId: known.get(sku)!.id,
+      colors: [...entry.colors],
+      photoCount: entry.count,
+    })),
+    issues,
+    total: photos.length,
+  };
 }
 
 /** What the catalogue already holds, keyed the way the sheet refers to it. */

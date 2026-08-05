@@ -39,5 +39,10 @@ export default defineMiddlewares({
         ]),
       ],
     },
+    {
+      matcher: "/admin/bulk/photos",
+      method: "POST",
+      middlewares: [upload.fields([{ name: "photos", maxCount: 1 }])],
+    },
   ],
 });

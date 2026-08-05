@@ -36,6 +36,9 @@ interface ReviewResult {
   photoCount: number;
   canImport: boolean;
   message?: string;
+  /** Only on the photos-only path: which articles get new photography. */
+  articles?: { sku: string; title: string; colors: string[]; photoCount: number }[];
+  total?: number;
 }
 
 const BulkPage = () => {
@@ -58,16 +61,24 @@ const BulkPage = () => {
     setReview(null);
   };
 
+  /* Photos with no spreadsheet is its own path, not a special case of the
+     other one. Replacing a photograph should not require retyping a price. */
+  const photosOnly = !sheet && photos !== null;
+
   const send = async (path: "validate" | "import") => {
-    if (!sheet) return;
+    if (!sheet && !photosOnly) return;
     setBusy(path);
 
     const body = new FormData();
-    body.append("sheet", sheet);
+    if (sheet) body.append("sheet", sheet);
     if (photos) body.append("photos", photos);
 
+    const url = photosOnly
+      ? `/admin/bulk/photos${path === "validate" ? "?dry=1" : ""}`
+      : `/admin/bulk/${path}`;
+
     try {
-      const response = await fetch(`/admin/bulk/${path}`, {
+      const response = await fetch(url, {
         method: "POST",
         body,
         credentials: "include",
@@ -85,7 +96,9 @@ const BulkPage = () => {
         toast.success(
           counts
             ? `Готово: ${counts.productsCreated} нови и ${counts.productsUpdated} обновени артикула`
-            : "Импортът приключи",
+            : data.articles
+              ? `Готово: снимките на ${data.articles.length} артикула са обновени`
+              : "Импортът приключи",
         );
         setReview(null);
         setSheet(null);
@@ -139,7 +152,7 @@ const BulkPage = () => {
           <CloudArrowUp />
           <Text weight="plus">Пуснете файловете тук или кликнете, за да изберете</Text>
           <Text size="small" className="text-ui-fg-subtle">
-            .xlsx с артикулите и по желание .zip със снимките
+            .xlsx с артикулите, или само .zip със снимките за вече съществуващи артикули
           </Text>
           <input
             ref={inputRef}
@@ -169,7 +182,7 @@ const BulkPage = () => {
             </Button>
             <Button
               variant="secondary"
-              disabled={!sheet || busy !== null}
+              disabled={(!sheet && !photosOnly) || busy !== null}
               isLoading={busy === "validate"}
               onClick={() => send("validate")}
             >
@@ -189,7 +202,23 @@ const BulkPage = () => {
 
       {review && (
         <div className="flex flex-col gap-4 px-6 py-4">
-          {review.canImport && review.counts ? (
+          {review.articles ? (
+            <div className="flex flex-col gap-2">
+              <Text weight="plus">
+                {review.articles.length > 0
+                  ? `Готови за качване: ${review.total} снимки на ${review.articles.length} артикула`
+                  : "Нито една снимка не съответства на артикул в магазина."}
+              </Text>
+              {review.articles.map((article) => (
+                <Text key={article.sku} size="small" className="text-ui-fg-subtle">
+                  {article.sku} · {article.title} — {article.colors.join(", ")} ({article.photoCount} снимки)
+                </Text>
+              ))}
+              <Text size="small" className="text-ui-fg-subtle">
+                Старите снимки на тези артикули ще бъдат заменени.
+              </Text>
+            </div>
+          ) : review.canImport && review.counts ? (
             <div className="flex flex-col gap-2">
               <Text weight="plus">Проверката мина. Ще се направи следното:</Text>
               <div className="flex flex-wrap gap-2">
