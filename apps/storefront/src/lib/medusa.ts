@@ -60,6 +60,78 @@ export async function medusaFetch<T>(
   return response.json() as Promise<T>;
 }
 
+/**
+ * Anything that changes state: creating a cart, adding a line, setting an
+ * address.
+ *
+ * Deliberately separate from `medusaFetch` rather than a flag on it, because
+ * the two have opposite caching needs and mixing them is how a cart ends up
+ * served from cache to the wrong shopper. This one is always `no-store`.
+ */
+export async function medusaMutate<T>(
+  path: string,
+  options: {
+    method?: "POST" | "DELETE";
+    body?: unknown;
+    query?: Record<string, string | number | undefined>;
+  } = {},
+): Promise<T> {
+  const url = new URL(path, BACKEND_URL);
+  for (const [key, value] of Object.entries(options.query ?? {})) {
+    if (value !== undefined) url.searchParams.set(key, String(value));
+  }
+
+  const response = await fetch(url, {
+    method: options.method ?? "POST",
+    headers: {
+      "x-publishable-api-key": PUBLISHABLE_KEY,
+      "content-type": "application/json",
+      accept: "application/json",
+    },
+    body: options.body === undefined ? undefined : JSON.stringify(options.body),
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new MedusaError(
+      response.status,
+      url.pathname,
+      await response.text().catch(() => response.statusText),
+    );
+  }
+
+  return response.json() as Promise<T>;
+}
+
+/** A read that must not be cached — a cart belongs to one shopper. */
+export async function medusaFetchFresh<T>(
+  path: string,
+  params: Record<string, string | number | undefined> = {},
+): Promise<T> {
+  const url = new URL(path, BACKEND_URL);
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined) url.searchParams.set(key, String(value));
+  }
+
+  const response = await fetch(url, {
+    headers: {
+      "x-publishable-api-key": PUBLISHABLE_KEY,
+      accept: "application/json",
+    },
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new MedusaError(
+      response.status,
+      url.pathname,
+      await response.text().catch(() => response.statusText),
+    );
+  }
+
+  return response.json() as Promise<T>;
+}
+
 /** True when the backend is reachable and configured. Used to tell a genuinely
  *  empty catalogue apart from a backend that is simply not running, which are
  *  very different things to show a visitor. */

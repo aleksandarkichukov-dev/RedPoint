@@ -41,34 +41,45 @@ export default async function pruneCatalogue({ container }: ExecArgs) {
   const stale = categories.filter(
     (category: { handle: string }) => !validHandles.has(category.handle),
   );
-
-  if (stale.length === 0) {
-    logger.info("Catalogue already matches the category tree. Nothing to prune.");
-    return;
-  }
-
   const staleIds = new Set(stale.map((category: { id: string }) => category.id));
-  logger.info(
-    `Pruning ${stale.length} categories: ${stale
-      .map((category: { handle: string }) => category.handle)
-      .join(", ")}`,
-  );
+
+  if (stale.length > 0) {
+    logger.info(
+      `Pruning ${stale.length} categories: ${stale
+        .map((category: { handle: string }) => category.handle)
+        .join(", ")}`,
+    );
+  }
 
   const { data: products } = await query.graph({
     entity: "product",
     fields: ["id", "handle", "categories.id"],
   });
 
+  /* A product with no surviving category at all counts too, not just one whose
+     categories are on their way out. Re-running the seed after a category has
+     been dropped recreates its products with nothing attached, and those are
+     invisible in every listing while still being sellable by direct link. */
   const orphaned = products.filter((product: { categories?: { id: string }[] }) => {
     const owners = product.categories ?? [];
-    return owners.length > 0 && owners.every((category) => staleIds.has(category.id));
+    return owners.every((category) => staleIds.has(category.id));
   });
+
+  if (stale.length === 0 && orphaned.length === 0) {
+    logger.info("Catalogue already matches the category tree. Nothing to prune.");
+    return;
+  }
 
   if (orphaned.length > 0) {
     logger.info(`Deleting ${orphaned.length} products left with no surviving category.`);
     await deleteProductsWorkflow(container).run({
       input: { ids: orphaned.map((product: { id: string }) => product.id) },
     });
+  }
+
+  if (staleIds.size === 0) {
+    logger.info(`Pruned ${orphaned.length} products with no surviving category.`);
+    return;
   }
 
   /* Deepest first. Medusa refuses to delete a category that still has children

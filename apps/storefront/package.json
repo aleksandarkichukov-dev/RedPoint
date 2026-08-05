@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.7",
+    "@redpoint/catalog": "workspace:*",
     "@redpoint/design-system": "workspace:*",
     "clsx": "^2.1.1",
     "next": "^15.5.4",

@@ -10,9 +10,12 @@ import {
   createRegionsWorkflow,
   createSalesChannelsWorkflow,
   createShippingOptionsWorkflow,
+  updateShippingOptionsWorkflow,
   createShippingProfilesWorkflow,
   createStockLocationsWorkflow,
   createTaxRegionsWorkflow,
+  updateTaxRegionsWorkflow,
+  updatePricePreferencesWorkflow,
   linkSalesChannelsToApiKeyWorkflow,
   linkSalesChannelsToStockLocationWorkflow,
   updateStoresWorkflow,
@@ -118,20 +121,67 @@ export default async function seed({ container }: ExecArgs) {
 
   // --- tax ------------------------------------------------------------------
 
+  /* Catalogue prices include VAT, because that is what the old site published
+     and what Bulgarian law requires a consumer to be shown. Medusa stores one
+     amount and decides from a price preference whether tax sits inside it or
+     gets added on top; the default is on top, which quietly turned a 45,00 €
+     jacket into 54,00 € at the till.
+
+     Marked inclusive rather than dividing every stored price by 1.2: the
+     amount then equals the advertised price exactly, and Medusa still records
+     the correct tax base on the order for the shop's accounting. */
+  const { data: pricePreferences } = await query.graph({
+    entity: "price_preference",
+    fields: ["id", "attribute", "value", "is_tax_inclusive"],
+  });
+
+  const inclusiveTargets = pricePreferences.filter(
+    (preference: { attribute: string; value: string; is_tax_inclusive: boolean }) =>
+      !preference.is_tax_inclusive &&
+      ((preference.attribute === "currency_code" && preference.value === "eur") ||
+        (preference.attribute === "region_id" && preference.value === regionId)),
+  );
+
+  if (inclusiveTargets.length > 0) {
+    await updatePricePreferencesWorkflow(container).run({
+      input: {
+        selector: { id: inclusiveTargets.map((p: { id: string }) => p.id) },
+        update: { is_tax_inclusive: true },
+      },
+    });
+    logger.info(`marked ${inclusiveTargets.length} price preferences as tax inclusive`);
+  }
+
+  /* `provider_id` is not optional in practice. A tax region without one looks
+     fine in the admin and in the database, and then the first add-to-cart dies
+     with a 500 and an AwilixResolutionError deep inside the tax module —
+     "Could not resolve 'null'" — because Medusa asks the region for its
+     provider while calculating line taxes. `tp_system` is the built-in one. */
+  const TAX_PROVIDER = "tp_system";
+
   const { data: existingTaxRegions } = await query.graph({
     entity: "tax_region",
-    fields: ["id", "country_code"],
+    fields: ["id", "country_code", "provider_id"],
   });
-  if (!existingTaxRegions.some((region) => region.country_code === "bg")) {
+  const bgTaxRegion = existingTaxRegions.find((region) => region.country_code === "bg");
+
+  if (!bgTaxRegion) {
     await createTaxRegionsWorkflow(container).run({
       input: [
         {
           country_code: "bg",
+          provider_id: TAX_PROVIDER,
           default_tax_rate: { name: "ДДС", code: "bg-vat", rate: 20 },
         },
       ],
     });
     logger.info("created tax region BG at 20 percent");
+  } else if (!bgTaxRegion.provider_id) {
+    // Repairs a region seeded before the provider was set.
+    await updateTaxRegionsWorkflow(container).run({
+      input: [{ id: bgTaxRegion.id, provider_id: TAX_PROVIDER }],
+    });
+    logger.info("attached the system tax provider to the existing BG tax region");
   }
 
   // --- stock location and fulfillment --------------------------------------
@@ -210,16 +260,40 @@ export default async function seed({ container }: ExecArgs) {
     fields: ["id", "name"],
   });
 
-  /* Placeholders using the manual provider so checkout can be exercised end to
-     end before Phase 6. The real Speedy and Econt providers replace these. */
+  /* The client's own prices, flat and identical for both couriers, so no
+     product weight is needed to quote a delivery — see
+     docs/client-requirements.md. Still on the manual provider: Phase 6 swaps
+     that for the real Speedy and Econt ones, which is where office pickers and
+     waybills live. The prices themselves are the client's decision and do not
+     change with that. */
+  const OFFICE_PRICE = 2.55;
+  const ADDRESS_PRICE = 3.06;
+
   const courierOptions = [
-    { name: "Спиди - до офис", amount: 5 },
-    { name: "Еконт - до офис", amount: 5 },
-    { name: "Спиди - до адрес", amount: 7 },
+    { name: "Спиди - до офис", amount: OFFICE_PRICE, code: "office" },
+    { name: "Еконт - до офис", amount: OFFICE_PRICE, code: "office" },
+    { name: "Спиди - до адрес", amount: ADDRESS_PRICE, code: "address" },
+    { name: "Еконт - до адрес", amount: ADDRESS_PRICE, code: "address" },
   ];
 
   for (const option of courierOptions) {
-    if (existingShippingOptions.some((existing) => existing.name === option.name)) continue;
+    const existing = existingShippingOptions.find((entry) => entry.name === option.name);
+
+    if (existing) {
+      /* Prices are re-applied rather than skipped. The first seed shipped
+         placeholder amounts, and a shopper being quoted 5 euro when the shop
+         charges 2.55 is worse than an extra write on every run. */
+      await updateShippingOptionsWorkflow(container).run({
+        input: [
+          {
+            id: existing.id,
+            prices: [{ currency_code: "eur", amount: option.amount }],
+          },
+        ],
+      });
+      continue;
+    }
+
     await createShippingOptionsWorkflow(container).run({
       input: [
         {
@@ -228,7 +302,7 @@ export default async function seed({ container }: ExecArgs) {
           provider_id: "manual_manual",
           service_zone_id: serviceZone.id,
           shipping_profile_id: shippingProfile.id,
-          type: { label: option.name, description: option.name, code: "standard" },
+          type: { label: option.name, description: option.name, code: option.code },
           prices: [{ currency_code: "eur", amount: option.amount }],
           rules: [
             { attribute: "enabled_in_store", value: "true", operator: "eq" },
@@ -238,7 +312,7 @@ export default async function seed({ container }: ExecArgs) {
       ],
     });
   }
-  logger.info("shipping options ready (placeholders until Phase 6)");
+  logger.info(`shipping options ready: office ${OFFICE_PRICE} EUR, address ${ADDRESS_PRICE} EUR`);
 
   // --- publishable api key --------------------------------------------------
   // The storefront cannot read the Store API without one, so it belongs in the
@@ -291,8 +365,22 @@ export default async function seed({ container }: ExecArgs) {
 
   await copyImages(logger);
 
+  /* `products.json` is the raw scrape and still holds everything the old site
+     sells, including branches the client has since dropped. The category tree
+     in @redpoint/catalog is the decision about what this shop carries, so a
+     product whose every category has left the tree is not seeded. Without this
+     the seed quietly resurrects the women's and sale products on its next run,
+     minutes after `prune-catalogue` removed them. */
+  const sellable = parsed.data.products.filter((product) =>
+    product.categoryKeys.some((key) => categoryIdByKey.has(key)),
+  );
+  const dropped = parsed.data.products.length - sellable.length;
+  if (dropped > 0) {
+    logger.info(`skipping ${dropped} products whose categories are not in the tree`);
+  }
+
   const warnings: MappingWarning[] = [];
-  const mapped = parsed.data.products.map((product) =>
+  const mapped = sellable.map((product) =>
     mapProduct(
       product,
       {

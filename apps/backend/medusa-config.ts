@@ -88,6 +88,28 @@ module.exports = defineConfig({
         ],
       },
     },
+    {
+      /* Notifications.
+
+         The local provider writes the message to the log instead of sending
+         it, which is exactly what is wanted until the client says which
+         address the shop sends from — decision 8 in docs/client-requirements.
+         SendGrid is already installed; swapping to it is this block plus an
+         API key, and no change to the subscriber or the templates. */
+      resolve: "@medusajs/medusa/notification",
+      options: {
+        providers: [
+          {
+            resolve: "@medusajs/medusa/notification-local",
+            id: "local",
+            options: {
+              name: "Local Notification Provider",
+              channels: ["email"],
+            },
+          },
+        ],
+      },
+    },
     ...redisModules,
   ],
 });

@@ -4,28 +4,36 @@ Phases 5 and 6 cannot start without these. Everything here is blocked on
 someone outside the codebase, so it is tracked separately from the phase plan
 in [website-kind-cook.md](../website-kind-cook.md).
 
-Status: **sent to the client, awaiting answers.**
+Status: **answered on 2026-08-05, except the credentials themselves.**
 
-## Blocking, and the one to chase first
+## Answered
 
-### Product weights
+### Product weights — no longer blocking
 
-Couriers price a parcel by weight. The old site publishes no weight anywhere,
-so the scrape brought back none: all 97 products are in the catalogue without
-one. Speedy and Econt can neither quote a price nor issue a waybill without it.
+The client chose **option A, one flat shipping price**, so no weight is needed
+to quote a delivery. That settles the question that reached backwards into
+Phase 7: the bulk import module does **not** need a weight column to ship.
 
-Three options were put to the client:
+Weight still has to reach the courier when a waybill is issued in Phase 6. With
+flat pricing that can be a single default declared per parcel rather than a
+figure the client maintains per product.
 
-| Option | Effort for the client | Consequence |
+### Shipping prices
+
+Flat, and the same for both couriers:
+
+| Delivery | Price |
+|---|---|
+| To an office | €2.55 |
+| To an address | €3.06 |
+
+### Checkout decisions
+
+| Question | Answer | What it means for the build |
 |---|---|---|
-| A. One flat shipping price | none | Ships today, loses money on heavy items and overcharges light ones |
-| B. Average weight per category | ~20 numbers, once | Accurate enough for most orders |
-| C. Real weight per product | a number on every upload, forever | Exact, and the only one that scales |
-
-**If the answer is C, the bulk module in Phase 7 needs a weight column from the
-start.** Adding it after the import format is settled means reworking the
-importer and re-issuing the template the client has already learned. This is
-why it is the question to chase, not the credentials.
+| Guest or account | **Both** | Guest checkout is the default path; signing in is optional and merges the guest cart |
+| Business customers | **No, individuals only** | No company, VAT or MOL fields, and no invoice rules to satisfy |
+| Cash-on-delivery fee | **None** | The total does not change with the payment method |
 
 ## Credentials
 

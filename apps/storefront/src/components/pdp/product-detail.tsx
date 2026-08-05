@@ -2,7 +2,9 @@
 
 import { X } from "@phosphor-icons/react";
 import Image from "next/image";
-import { useEffect, useId, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useId, useState, useTransition } from "react";
+import { addToCartAction } from "@/lib/cart-actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { WishlistButton } from "@/components/ui/wishlist-button";
@@ -48,7 +50,10 @@ export function ProductDetail({
   const [colorIndex, setColorIndex] = useState(0);
   const [size, setSize] = useState<string | null>(null);
   const [sizeError, setSizeError] = useState(false);
+  const [addError, setAddError] = useState<string | null>(null);
   const [chartOpen, setChartOpen] = useState(false);
+  const [pending, startTransition] = useTransition();
+  const router = useRouter();
   const errorId = useId();
   const groupId = useId();
 
@@ -231,18 +236,47 @@ export function ProductDetail({
           <Button
             variant="solid"
             className="w-full"
-            disabled={everySizeGone}
-            aria-describedby={sizeError ? errorId : undefined}
+            disabled={everySizeGone || pending}
+            aria-describedby={sizeError || addError ? errorId : undefined}
             onClick={() => {
               if (!size) {
                 setSizeError(true);
                 return;
               }
-              // Cart wiring lands in Phase 5.
+              const variantId = color.sizes.find((entry) => entry.label === size)?.variantId;
+              if (!variantId) {
+                setSizeError(true);
+                return;
+              }
+
+              setAddError(null);
+              startTransition(async () => {
+                const result = await addToCartAction(variantId);
+                if (!result.ok) {
+                  setAddError(result.error ?? "Нещо се обърка.");
+                  return;
+                }
+                /* Straight to the basket rather than a toast that disappears.
+                   The shopper's next question is "what does it cost with
+                   delivery", and the answer is on that page.
+
+                   `refresh` is not belt and braces. The cart link sits in the
+                   header of every page, so Next prefetches /cart long before
+                   anything is in it, and pushing without this lands on that
+                   prefetched empty basket holding the item you just added. */
+                router.push("/cart");
+                router.refresh();
+              });
             }}
           >
-            добави в количката
+            {pending ? "добавяме..." : "добави в количката"}
           </Button>
+
+          {addError && (
+            <p id={errorId} role="alert" className="font-body text-body font-semibold text-primary">
+              {addError}
+            </p>
+          )}
 
           <dl className="flex flex-col divide-y divide-border border-y border-border">
             {material && (

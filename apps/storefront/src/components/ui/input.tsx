@@ -55,7 +55,15 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
         aria-invalid={error ? true : undefined}
         aria-describedby={describedBy}
         className={cn(
-          "w-full rounded-none border-0 bg-surface px-4 py-3",
+          /* A visible hairline, at the client's request. The extraction had
+             these as a bare #F7F7F7 fill with no border, which on a white
+             checkout leaves a shopper hunting for where to type — the fill is
+             barely two percent off the page. Square and monochrome, so it is
+             the system's own hairline rather than a new idea.
+
+             The error state stays a 2px stroke and so still reads as different
+             rather than merely darker. */
+          "w-full rounded-none border border-border bg-surface px-4 py-3",
           "font-body text-input text-body-text",
           "placeholder:text-muted-text",
           error && "outline-2 -outline-offset-2",
