@@ -61,7 +61,9 @@ export default async function HomePage() {
   return (
     <>
       <SiteHeader overlay />
-      <main>
+      {/* The home page sits outside the catalogue layout, so it has no
+          template to animate it. The same wave, applied to its sections. */}
+      <main className="rp-wave">
         <Hero
           posterSrc="https://picsum.photos/seed/redpoint-hero-autumn/2400/1350"
           posterAlt="Мъж с яке и дънки на градска улица"

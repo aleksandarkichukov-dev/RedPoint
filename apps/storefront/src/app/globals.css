@@ -110,8 +110,90 @@
     animation-delay: var(--rp-stagger, 0ms);
   }
 
-  .rp-page-enter {
-    animation: rp-page-enter var(--duration-base) var(--ease-brand);
+  /* The page arrives as a wave rather than as one slab.
+
+     The whole wrapper used to slide up together, which reads as a single card
+     being pushed into place. Letting each section start a beat after the one
+     above it gives the eye somewhere to travel, and the order it travels in is
+     the order the page is meant to be read.
+
+     `> * > *` reaches through the page's own container to its sections —
+     heading, filters, grid — because the wrapper itself is one element and
+     animating it is what we are replacing. A page whose container holds a
+     single child simply fades in, which is the honest result for a page with
+     one section.
+
+     `backwards` keeps each section hidden through its delay. No `forwards`
+     anywhere: a transform surviving the animation would make this wrapper the
+     containing block for every `position: fixed` overlay inside it and quietly
+     break the filter panel and the size dialog. */
+  .rp-page-enter > * > *,
+  .rp-wave > * {
+    animation: rp-page-enter var(--duration-base) var(--ease-brand) backwards;
+    /* Declared here, not left to a `var()` fallback. Custom properties inherit,
+       so a card inside the third section would otherwise pick up that section's
+       delay and the first card in the grid would start 140ms late — the one
+       card that should lead the sweep. Setting it on every animated element
+       blocks the inheritance; the rules below override it. */
+    --rp-step: 0ms;
+    animation-delay: var(--rp-step);
+  }
+
+  /* Two ramps, because a page has a handful of sections and a grid has two
+     dozen cards.
+
+     Sections step 70ms: below about 50 they read as simultaneous, above 100 the
+     last one feels like it is loading rather than arriving. Capped at the
+     fifth, so a long page never makes anyone wait for the bottom. */
+  .rp-page-enter > * > *:nth-child(2) {
+    --rp-step: 70ms;
+  }
+  .rp-page-enter > * > *:nth-child(3) {
+    --rp-step: 140ms;
+  }
+  .rp-page-enter > * > *:nth-child(4) {
+    --rp-step: 210ms;
+  }
+  .rp-page-enter > * > *:nth-child(n + 5) {
+    --rp-step: 280ms;
+  }
+
+  /* Cards step 40ms and run to twelve. Across a four-column grid that reads as
+     a diagonal sweep rather than a row landing at a time, and twelve covers
+     three rows — everything visible before a scroll on a laptop. The rest are
+     below the fold, where a delay buys nothing. */
+  .rp-wave > *:nth-child(2) {
+    --rp-step: 40ms;
+  }
+  .rp-wave > *:nth-child(3) {
+    --rp-step: 80ms;
+  }
+  .rp-wave > *:nth-child(4) {
+    --rp-step: 120ms;
+  }
+  .rp-wave > *:nth-child(5) {
+    --rp-step: 160ms;
+  }
+  .rp-wave > *:nth-child(6) {
+    --rp-step: 200ms;
+  }
+  .rp-wave > *:nth-child(7) {
+    --rp-step: 240ms;
+  }
+  .rp-wave > *:nth-child(8) {
+    --rp-step: 280ms;
+  }
+  .rp-wave > *:nth-child(9) {
+    --rp-step: 320ms;
+  }
+  .rp-wave > *:nth-child(10) {
+    --rp-step: 360ms;
+  }
+  .rp-wave > *:nth-child(11) {
+    --rp-step: 400ms;
+  }
+  .rp-wave > *:nth-child(n + 12) {
+    --rp-step: 440ms;
   }
 }
 

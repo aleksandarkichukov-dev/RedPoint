@@ -74,7 +74,10 @@ export function ProductListing({
           hidden rather than invented as decoration. */}
       <h2 className="sr-only">Продукти</h2>
 
-      <div className="grid grid-cols-2 gap-x-4 gap-y-8 lg:grid-cols-4">
+      {/* The cards cascade rather than the grid arriving as one slab. On a
+          category page the grid IS the page, so animating it as a single
+          section moves the one thing a shopper came to look at as a block. */}
+      <div className="rp-wave grid grid-cols-2 gap-x-4 gap-y-8 lg:grid-cols-4">
         {products.map((product, index) => (
           <ProductCard
             key={product.id}
