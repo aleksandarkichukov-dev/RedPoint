@@ -36,6 +36,8 @@ export default async function orderPlacedHandler({
       "items.quantity",
       "items.total",
       "items.variant.options.value",
+      "items.variant.options.option.title",
+      "items.variant.product.metadata",
       "shipping_methods.name",
       "shipping_address.*",
       "payment_collections.payments.provider_id",
@@ -57,8 +59,17 @@ export default async function orderPlacedHandler({
     total: order.total,
     lines: (order.items ?? []).map((item: Record<string, any>) => ({
       title: item.title,
+      /* Same rename the shop applies everywhere else. The stored option value
+         is still `Цвят 25` for migrated products, and a confirmation email is
+         the last place a shopper should meet a name they have not seen. */
       variant: (item.variant?.options ?? [])
-        .map((option: { value: string }) => option.value)
+        .map((option: { value: string; option?: { title?: string } }) =>
+          option.option?.title === "Цвят"
+            ? ((item.variant?.product?.metadata?.color_names as Record<string, string> | undefined)?.[
+                option.value
+              ] ?? option.value)
+            : option.value,
+        )
         .join(" · "),
       quantity: item.quantity,
       total: item.total,

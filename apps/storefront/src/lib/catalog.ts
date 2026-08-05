@@ -211,6 +211,28 @@ export function colorDisplayName(product: StoreProduct, value: string): string {
   return product.metadata?.color_names?.[value] ?? value;
 }
 
+/**
+ * "синьо · 31" for a line in a cart, an order or a confirmation email.
+ *
+ * Shared because a basket, an order summary and an email each read the variant
+ * straight off the API, and each one that forgets the rename shows `Цвят 25`
+ * next to a product the shopper chose as "синьо". A change of wording between
+ * choosing an item and paying for it reads as a change of item.
+ */
+export function readableVariant(
+  options: { value: string; option?: { title?: string | null } | null }[] | null | undefined,
+  colorNames: Record<string, string> | null | undefined,
+): string {
+  return (options ?? [])
+    .map((option) =>
+      option.option?.title === OPTION_COLOR
+        ? (colorNames?.[option.value] ?? option.value)
+        : option.value,
+    )
+    .filter(Boolean)
+    .join(" · ");
+}
+
 /** Groups a product's variants into the colour-then-size shape the PDP shows. */
 export function toColorOptions(product: StoreProduct): ColorOption[] {
   const byColor = new Map<string, ColorOption>();

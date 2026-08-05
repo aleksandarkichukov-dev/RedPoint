@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import { getRegionId } from "@/lib/catalog";
+import { getRegionId, readableVariant } from "@/lib/catalog";
 import { medusaFetchFresh, medusaMutate } from "@/lib/medusa";
 
 /**
@@ -63,7 +63,11 @@ interface StoreCart {
     variant?: {
       title?: string | null;
       options?: { value: string; option?: { title: string } | null }[] | null;
-      product?: { handle?: string | null; title?: string | null } | null;
+      product?: {
+        handle?: string | null;
+        title?: string | null;
+        metadata?: { color_names?: Record<string, string> } | null;
+      } | null;
     } | null;
   }[];
 }
@@ -85,12 +89,18 @@ const CART_FIELDS = [
 function toCart(cart: StoreCart): Cart {
   const lines: CartLine[] = (cart.items ?? []).map((item) => {
     /* Medusa's own `variant_title` is the SKU-ish composite. The shopper picked
-       a colour and a size, so that is what the line says. */
-    const options = item.variant?.options ?? [];
-    const readable = options
-      .map((option) => option.value)
-      .filter(Boolean)
-      .join(" · ");
+       a colour and a size, so that is what the line says.
+
+       The colour goes through the same rename the rest of the shop uses. The
+       old site published colours as numeric ids, so the stored option value is
+       still `Цвят 25` and the real name lives in product metadata. Reading the
+       raw value here meant a shopper chose "черно" on the product page and
+       found "Цвят 25" in their basket — the one place where a change of wording
+       reads as a change of item. */
+    const readable = readableVariant(
+      item.variant?.options,
+      item.variant?.product?.metadata?.color_names,
+    );
 
     return {
       id: item.id,

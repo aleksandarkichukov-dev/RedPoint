@@ -1,4 +1,5 @@
 import { getCartId } from "@/lib/cart";
+import { readableVariant } from "@/lib/catalog";
 import { medusaFetchFresh, medusaMutate } from "@/lib/medusa";
 
 /**
@@ -150,7 +151,7 @@ export async function getOrder(orderId: string): Promise<OrderSummary | null> {
       `/store/orders/${orderId}`,
       {
         fields:
-          "id,display_id,email,total,currency_code,*items,*items.variant,*items.variant.options,*shipping_methods,*shipping_address,*payment_collections,*payment_collections.payments",
+          "id,display_id,email,total,currency_code,*items,*items.variant,*items.variant.options,*items.variant.options.option,*items.variant.product,*shipping_methods,*shipping_address,*payment_collections,*payment_collections.payments",
       },
     );
 
@@ -165,9 +166,10 @@ export async function getOrder(orderId: string): Promise<OrderSummary | null> {
       lines: (order.items ?? []).map((item: Record<string, any>) => ({
         id: item.id,
         title: item.title,
-        variantTitle: (item.variant?.options ?? [])
-          .map((option: { value: string }) => option.value)
-          .join(" · "),
+        variantTitle: readableVariant(
+          item.variant?.options,
+          item.variant?.product?.metadata?.color_names,
+        ),
         quantity: item.quantity,
         total: item.total,
       })),
