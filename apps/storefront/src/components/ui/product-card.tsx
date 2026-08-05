@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { WishlistButton } from "@/components/ui/wishlist-button";
 import { cn } from "@/lib/cn";
-import { discountPercent, formatBgn, formatEur } from "@/lib/price";
+import { discountPercent, formatEur } from "@/lib/price";
 
 /**
  * A colour swatch.
@@ -116,41 +116,56 @@ export function ProductCard({
           </Link>
         </h3>
 
+        {/* EUR only. The BGN conversion is a legal requirement at the point of
+            purchase, not something a shopper needs on every tile — carrying it
+            here doubled the width of the price line and put a bracketed number
+            between the price and the one it is discounted from. The product
+            page still shows it.
+
+            The old price is normal weight, not semibold. It was already grey,
+            but at 600 it held its own against the current price and read as a
+            second price rather than as a struck-out one. */}
         <p className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
           <span className="font-body text-price text-body-text">
             {formatEur(price)}
           </span>
-          <span className="font-body text-body text-muted-text">
-            ({formatBgn(price)})
-          </span>
           {compareAtPrice && discount !== null && (
-            <span className="font-body text-price font-semibold text-muted-text line-through">
+            <span className="font-body text-price font-normal text-muted-text line-through">
               {formatEur(compareAtPrice)}
             </span>
           )}
         </p>
 
-        {colors.length > 1 && (
-          <ul className="flex items-center gap-2" aria-label="Налични цветове">
+        {/* Every card carries its colour, not only the ones offered in several.
+            Previously this row appeared only above a second colour, so a whole
+            page of jeans showed no colour at all and the grid looked ragged.
+
+            Flat chips rather than photo thumbnails: the colours are real values
+            sampled from the photography now, and a lone thumbnail under a
+            product shot is a miniature of the picture directly above it. The
+            thumbnail stays as the fallback for anything with no sampled value.
+            With one colour the name is spelled out, because there is room and
+            it is what a shopper just filtered by. */}
+        {colors.length > 0 && (
+          <ul className="flex flex-wrap items-center gap-2" aria-label="Налични цветове">
             {visibleColors.map((color) => (
-              <li key={color.id}>
-                {color.image ? (
-                  <span className="relative block size-6 overflow-hidden bg-neutral">
-                    <Image
-                      src={color.image}
-                      alt=""
-                      fill
-                      sizes="24px"
-                      className="object-cover"
-                    />
-                  </span>
-                ) : (
+              <li key={color.id} className="flex items-center gap-2">
+                {color.hex ? (
                   <span
-                    className="block size-3 border border-border"
-                    style={{ backgroundColor: color.hex ?? "transparent" }}
+                    className="block size-4 border border-border"
+                    style={{ backgroundColor: color.hex }}
                   />
+                ) : color.image ? (
+                  <span className="relative block size-6 overflow-hidden bg-neutral">
+                    <Image src={color.image} alt="" fill sizes="24px" className="object-cover" />
+                  </span>
+                ) : null}
+
+                {colors.length === 1 ? (
+                  <span className="font-body text-body text-muted-text">{color.name}</span>
+                ) : (
+                  <span className="sr-only">{color.name}</span>
                 )}
-                <span className="sr-only">{color.name}</span>
               </li>
             ))}
             {hiddenColorCount > 0 && (

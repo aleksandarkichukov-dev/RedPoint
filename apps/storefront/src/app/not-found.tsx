@@ -17,7 +17,7 @@ export default function NotFound() {
   return (
     <>
       <SiteHeader />
-      <main className="pt-14 md:pt-16">
+      <main className="pt-16 md:pt-20">
         <div className="mx-auto flex min-h-[60vh] w-full max-w-(--container-page) flex-col items-start justify-center gap-6 px-4 py-16 md:px-8">
           <p className="font-body text-nav text-muted-text">Грешка 404</p>
           <h1 className="text-display">Страницата не съществува</h1>

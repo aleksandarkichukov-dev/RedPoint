@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { NewsletterForm } from "@/components/layout/newsletter-form";
-import { NAV_GROUPS, SALE_LINK } from "@/lib/navigation";
+import { Wordmark } from "@/components/layout/wordmark";
+import { NAV_GROUPS } from "@/lib/navigation";
 import { STORES } from "@/lib/home";
 
 const HELP_LINKS = [
@@ -49,15 +50,12 @@ export function SiteFooter() {
         </div>
 
         <div className="flex flex-col gap-3 border-t border-white/15 py-8 md:flex-row md:items-center md:justify-between">
-          <span className="font-headline text-subhead font-bold tracking-[0.06em] uppercase">
-            Red Point
-          </span>
+          {/* The one surface where the mark is exactly as the client draws it:
+              white letters, red disc, strapline, on black. */}
+          <Wordmark className="text-subhead" tagline />
           <span className="font-body text-body text-white/45">
             {year} Red Point Варна. Всички права запазени.
           </span>
-          <Link href={SALE_LINK.href} className="font-body text-nav text-white uppercase">
-            {SALE_LINK.label}
-          </Link>
         </div>
       </div>
     </footer>

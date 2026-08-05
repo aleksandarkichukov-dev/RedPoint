@@ -1,0 +1,43 @@
+# Everything the image must build for itself, plus everything it must never see.
+#
+# Without this file `COPY apps/backend apps/backend` does two damaging things:
+# it lays the host's Windows pnpm symlinks over the ones pnpm just created in
+# the image (which breaks `tsc` with a MODULE_NOT_FOUND on a dangling .bin
+# link), and it bakes apps/backend/.env — database password, session secrets —
+# into an image layer, where it survives every later deletion.
+
+# The `**/` prefixes are load-bearing. Docker matches these patterns against
+# the full path from the context root, so a bare `node_modules` excludes only
+# the one at the top and lets `packages/catalog/node_modules` through — whose
+# symlinks point at C:\Users\... and mean nothing inside a Linux image.
+
+# secrets: the container gets these at run time, never at build time
+**/.env
+**/.env.*
+!**/.env.example
+
+# installed and generated, rebuilt inside the image
+**/node_modules
+.pnpm-store
+packages/*/dist
+apps/storefront/.next
+apps/storefront/.next-prod
+apps/backend/.medusa
+**/*.tsbuildinfo
+
+# the client's catalogue data and photography: seeded from outside the image
+seed/images
+seed/products.json
+seed/reports
+tools/scraper/.cache
+apps/backend/static
+
+# not part of any build
+.git
+.github
+.claude
+docs
+*.log
+*.md
+Dockerfile
+.dockerignore

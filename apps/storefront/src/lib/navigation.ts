@@ -25,8 +25,6 @@ export interface NavGroup {
   label: string;
   href: string;
   columns: NavColumn[];
-  /** Editorial image shown alongside the mega menu. */
-  feature?: { src: string; alt: string; label: string; href: string };
 }
 
 export const NAV_GROUPS: NavGroup[] = [
@@ -79,35 +77,10 @@ export const NAV_GROUPS: NavGroup[] = [
         ],
       },
     ],
-    feature: {
-      src: "https://picsum.photos/seed/redpoint-nav-men/900/1200",
-      alt: "Мъжка есенна колекция",
-      label: "есен 2026",
-      href: "/men",
-    },
-  },
-  {
-    label: "Жени",
-    href: "/women",
-    columns: [
-      {
-        label: "Категории",
-        href: "/women",
-        links: [
-          { label: "Аксесоари", href: "/women-accessories" },
-          { label: "Бельо", href: "/women-underwear" },
-        ],
-      },
-    ],
-    feature: {
-      src: "https://picsum.photos/seed/redpoint-nav-women/900/1200",
-      alt: "Дамски аксесоари",
-      label: "аксесоари",
-      href: "/women",
-    },
   },
 ];
 
-/** Kept out of NAV_GROUPS: it has no mega menu, and it is the one nav item
- *  allowed to carry the accent colour. */
-export const SALE_LINK: NavLink = { label: "Разпродажба", href: "/men-sale" };
+/* "Жени" and "Разпродажба" were removed at the client's request, along with
+   the nine products behind them. The sale link used to live outside this array
+   because it had no mega menu and was the one nav item allowed to carry the
+   accent colour; with it gone, nothing in the navigation is red. */

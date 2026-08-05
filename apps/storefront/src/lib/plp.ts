@@ -1,4 +1,9 @@
-import { OPTION_COLOR, OPTION_SIZE, type StoreProduct } from "@/lib/catalog";
+import {
+  colorDisplayName,
+  OPTION_COLOR,
+  OPTION_SIZE,
+  type StoreProduct,
+} from "@/lib/catalog";
 
 /**
  * Facets and filtering for a listing page.
@@ -35,11 +40,19 @@ export function availableSizes(product: StoreProduct): string[] {
   return [...sizes];
 }
 
+/**
+ * Colours as a shopper would name them, not as the old site numbered them.
+ *
+ * Deliberately the display name rather than the option value: filtering by
+ * "Цвят 25" asks a shopper to know a number that means different colours on
+ * different garments, and it splits one real colour across several facets.
+ * Naming first makes every navy in the catalogue one filter.
+ */
 export function productColors(product: StoreProduct): string[] {
   const colors = new Set<string>();
   for (const variant of product.variants) {
     const color = variantOption(variant, OPTION_COLOR);
-    if (color) colors.add(color);
+    if (color) colors.add(colorDisplayName(product, color));
   }
   return [...colors];
 }
@@ -100,12 +113,54 @@ export function applyPlpQuery(products: StoreProduct[], query: PlpQuery): StoreP
   return filtered;
 }
 
+/* The catalogue carries three unrelated size systems — letters (XS to 6XL),
+   numbers for waists and shoes (28 to 45), numbers for belts (110 to 135) —
+   plus "Стандартен" for one-size goods. Sorting them as text puts 2XL before S
+   and 110 before 28, so each system is ranked on its own terms. */
+const LETTER_SIZES = ["XS", "S", "M", "L", "XL", "2XL", "3XL", "4XL", "5XL", "6XL"];
+
+const LETTER_ALIASES: Record<string, string> = {
+  XXL: "2XL",
+  XXXL: "3XL",
+  XXXXL: "4XL",
+};
+
+function sizeRank(size: string): [number, number] {
+  const normalised = size.trim().toUpperCase();
+  const letterIndex = LETTER_SIZES.indexOf(LETTER_ALIASES[normalised] ?? normalised);
+  if (letterIndex !== -1) return [0, letterIndex];
+
+  const numeric = Number(normalised);
+  if (Number.isFinite(numeric)) return [1, numeric];
+
+  // "Стандартен" and anything else unrecognised sorts last, alphabetically.
+  return [2, 0];
+}
+
+export function compareSizes(a: string, b: string): number {
+  const [groupA, rankA] = sizeRank(a);
+  const [groupB, rankB] = sizeRank(b);
+  if (groupA !== groupB) return groupA - groupB;
+  if (rankA !== rankB) return rankA - rankB;
+  return a.localeCompare(b, "bg");
+}
+
+export interface FacetOption {
+  value: string;
+  label: string;
+  count: number;
+  /** Hex for the colour facet's chip. Absent on every other facet. */
+  swatch?: string;
+}
+
 /** Facet options counted against the products that survive the OTHER filters,
  *  so a count never promises results that picking it would not produce. */
 export function buildFacetOptions(
   products: StoreProduct[],
   extract: (product: StoreProduct) => string[],
-): { value: string; label: string; count: number }[] {
+  compare: (a: string, b: string) => number = (a, b) =>
+    a.localeCompare(b, "bg", { numeric: true }),
+): FacetOption[] {
   const counts = new Map<string, number>();
   for (const product of products) {
     for (const value of extract(product)) {
@@ -114,5 +169,52 @@ export function buildFacetOptions(
   }
   return [...counts.entries()]
     .map(([value, count]) => ({ value, label: value, count }))
-    .sort((a, b) => a.label.localeCompare(b.label, "bg", { numeric: true }));
+    .sort((a, b) => compare(a.value, b.value));
+}
+
+/**
+ * The colour facet, with a chip for each entry.
+ *
+ * One name covers several sampled values — every navy in the catalogue is
+ * "синьо" — so the chip is the average of them rather than whichever product
+ * happened to come first, which would show a shopper one specific garment's
+ * navy as if it stood for all of them.
+ */
+export function buildColorFacetOptions(products: StoreProduct[]): FacetOption[] {
+  /* Counted per product, not per variant: a product offered in one colour adds
+     one to that colour, however many sizes it comes in. */
+  const counts = new Map<string, number>();
+  const channels = new Map<string, { r: number; g: number; b: number; n: number }>();
+
+  for (const product of products) {
+    const swatches = product.metadata?.color_swatches ?? {};
+
+    for (const name of new Set(productColors(product))) {
+      counts.set(name, (counts.get(name) ?? 0) + 1);
+    }
+
+    for (const [raw, hex] of Object.entries(swatches)) {
+      const parsed = hex.match(/^#([\da-f]{2})([\da-f]{2})([\da-f]{2})$/i);
+      if (!parsed) continue;
+      const name = colorDisplayName(product, raw);
+      let entry = channels.get(name);
+      if (!entry) channels.set(name, (entry = { r: 0, g: 0, b: 0, n: 0 }));
+      entry.r += parseInt(parsed[1]!, 16);
+      entry.g += parseInt(parsed[2]!, 16);
+      entry.b += parseInt(parsed[3]!, 16);
+      entry.n += 1;
+    }
+  }
+
+  return [...counts.entries()]
+    .map(([name, count]) => {
+      const entry = channels.get(name);
+      const swatch = entry
+        ? `#${[entry.r, entry.g, entry.b]
+            .map((total) => Math.round(total / entry.n).toString(16).padStart(2, "0"))
+            .join("")}`
+        : undefined;
+      return { value: name, label: name, count, swatch };
+    })
+    .sort((a, b) => a.label.localeCompare(b.label, "bg"));
 }

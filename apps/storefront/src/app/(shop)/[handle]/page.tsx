@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { PlpFilters, type FilterFacet } from "@/components/plp/plp-filters";
 import { ProductListing } from "@/components/plp/product-listing";
 import {
+  categorySubtreeIds,
   getCategoryByHandle,
   getRegionId,
   listCategories,
@@ -12,9 +13,10 @@ import {
 import {
   applyPlpQuery,
   availableSizes,
+  buildColorFacetOptions,
   buildFacetOptions,
+  compareSizes,
   parsePlpQuery,
-  productColors,
   SORT_OPTIONS,
 } from "@/lib/plp";
 
@@ -46,9 +48,13 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
   if (!category) notFound();
 
   const [regionId, allCategories] = await Promise.all([getRegionId(), listCategories()]);
+
+  /* The subtree, not the category alone. Grouping levels carry no products of
+     their own, so asking for one by itself renders an empty listing under a
+     perfectly valid heading. */
   const { products: fetched } = await listProducts({
     regionId,
-    categoryId: category.id,
+    categoryId: categorySubtreeIds(category.id, allCategories),
     limit: FETCH_LIMIT,
   });
 
@@ -66,13 +72,15 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
       param: "size",
       label: "Размер",
       multiple: true,
-      options: buildFacetOptions(sizeFacetSource, availableSizes),
+      // Smallest to largest, across three unrelated sizing systems.
+      options: buildFacetOptions(sizeFacetSource, availableSizes, compareSizes),
     },
     {
       param: "color",
       label: "Цвят",
       multiple: true,
-      options: buildFacetOptions(colorFacetSource, productColors),
+      // Alphabetical, each with the averaged chip for that colour.
+      options: buildColorFacetOptions(colorFacetSource),
     },
     {
       param: "sort",

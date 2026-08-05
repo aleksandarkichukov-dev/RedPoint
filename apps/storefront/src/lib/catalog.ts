@@ -51,6 +51,11 @@ export interface StoreProduct {
     article_no?: string;
     /** `{ "Цвят 25": ["url", ...] }` */
     color_images?: Record<string, string[]>;
+    /** `{ "Цвят 25": "тъмно синьо" }`, sampled from the photography by
+     *  `apps/backend/src/scripts/name-colors.ts`. */
+    color_names?: Record<string, string>;
+    /** `{ "Цвят 25": "#3c4250" }`, the sampled value behind the name. */
+    color_swatches?: Record<string, string>;
     size_chart?: { size: string; a_cm: number | null; b_cm: number | null }[];
     compare_at_eur?: number | null;
     scraped_price_bgn?: number;
@@ -87,7 +92,8 @@ export interface ProductPage {
 
 export async function listProducts(options: {
   regionId: string;
-  categoryId?: string;
+  /** One category, or a whole subtree — see `categorySubtreeIds`. */
+  categoryId?: string | string[];
   limit?: number;
   offset?: number;
   order?: string;
@@ -134,6 +140,32 @@ export async function getCategoryByHandle(handle: string): Promise<StoreCategory
   return product_categories[0] ?? null;
 }
 
+/**
+ * A category id together with every category beneath it.
+ *
+ * The tree has grouping levels — "Мъже", and under it "Якета", "Блузи",
+ * "Панталони", "Още" — that hold no products of their own; every garment hangs
+ * off a leaf. Asking Medusa for a group on its own therefore returns nothing,
+ * which is what a shopper used to get for clicking a heading in the mega menu
+ * or the "Мъже" tab itself: a real category, a 200, and an empty page.
+ *
+ * Breadth-first over a flat list rather than a nested fetch, because
+ * `listCategories` already has the whole tree and it is 25 nodes.
+ */
+export function categorySubtreeIds(rootId: string, all: StoreCategory[]): string[] {
+  const ids = [rootId];
+  const seen = new Set(ids);
+  for (let index = 0; index < ids.length; index += 1) {
+    for (const candidate of all) {
+      if (candidate.parent_category_id === ids[index] && !seen.has(candidate.id)) {
+        seen.add(candidate.id);
+        ids.push(candidate.id);
+      }
+    }
+  }
+  return ids;
+}
+
 /** The store has one region. Cached like everything else, so this is not a
  *  request per page render. */
 export async function getRegionId(): Promise<string> {
@@ -149,8 +181,14 @@ export async function getRegionId(): Promise<string> {
 // --- derived views ----------------------------------------------------------
 
 export interface ColorOption {
+  /** What a shopper reads: "тъмно синьо". */
   name: string;
+  /** The raw option value, "Цвят 25". Part of every variant SKU, so it stays
+   *  the identity even once the name changes. */
+  value: string;
   images: string[];
+  /** Sampled hex behind the name, when the photography gave one. */
+  hex?: string;
   /** Sizes for this colour, with the ones that are out of stock kept and
    *  flagged rather than dropped: a shopper needs to see that L exists and is
    *  gone, not wonder whether the shop stocks it at all. */
@@ -159,6 +197,18 @@ export interface ColorOption {
 
 function optionValue(variant: StoreVariant, title: string): string | null {
   return variant.options.find((o) => o.option?.title === title)?.value ?? null;
+}
+
+/**
+ * The readable name for a colour option value.
+ *
+ * The old site records no colour, only an id, so the catalogue arrived full of
+ * variants called "Цвят 25". `name-colors.ts` samples each product's own
+ * photography and writes the result here. Anything it could not sample falls
+ * back to the id, which is unhelpful but at least true.
+ */
+export function colorDisplayName(product: StoreProduct, value: string): string {
+  return product.metadata?.color_names?.[value] ?? value;
 }
 
 /** Groups a product's variants into the colour-then-size shape the PDP shows. */
@@ -173,8 +223,10 @@ export function toColorOptions(product: StoreProduct): ColorOption[] {
     let entry = byColor.get(color);
     if (!entry) {
       entry = {
-        name: color,
+        name: colorDisplayName(product, color),
+        value: color,
         images: product.metadata?.color_images?.[color] ?? [],
+        hex: product.metadata?.color_swatches?.[color],
         sizes: [],
       };
       byColor.set(color, entry);
@@ -260,6 +312,28 @@ export async function resolveCategoryTiles(
  * of the product, so the hover swap stays within one colourway instead of
  * flipping between two different garments.
  */
+/**
+ * The product name without its article number.
+ *
+ * Every name on the old site ends in the article number — "Тъмносиньо
+ * спортно-техническо яке 16876" — which is how the shop's staff find a garment
+ * but means nothing to a shopper scanning a grid, and it eats one of the two
+ * lines the card allows. The product page still shows it, on its own line and
+ * labelled, which is where someone phoning the shop would go looking.
+ *
+ * Only ever strips the number the catalogue actually recorded for that product,
+ * so a name that legitimately ends in digits keeps them.
+ */
+export function cardTitle(product: StoreProduct): string {
+  const article = product.metadata?.article_no;
+  if (!article) return product.title;
+
+  const suffix = ` ${article}`;
+  return product.title.endsWith(suffix)
+    ? product.title.slice(0, -suffix.length).trimEnd()
+    : product.title;
+}
+
 export function toCardProps(product: StoreProduct) {
   const colors = toColorOptions(product);
   const firstColorImages = colors[0]?.images ?? [];
@@ -275,13 +349,14 @@ export function toCardProps(product: StoreProduct) {
 
   return {
     href: productHref(product),
-    name: product.title,
+    name: cardTitle(product),
     images,
     price: displayPrice(product) ?? 0,
     compareAtPrice: compareAtPrice(product),
     colors: colors.map((color) => ({
-      id: color.name,
+      id: color.value,
       name: color.name,
+      hex: color.hex,
       image: color.images[0],
     })),
   };

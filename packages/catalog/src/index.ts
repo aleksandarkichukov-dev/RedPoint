@@ -7,4 +7,5 @@
  * the two drift, and the failure mode is a silently mis-seeded catalogue.
  */
 export * from "./categories";
+export * from "./colors";
 export * from "./schema";

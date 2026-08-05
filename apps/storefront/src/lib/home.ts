@@ -72,7 +72,10 @@ export const FEATURED_CATEGORIES: FeaturedCategory[] = [
   { label: "Тениски", handle: "men-tshirts" },
   { label: "Панталони", handle: "men-trousers" },
   { label: "Суичъри", handle: "men-sweatshirts" },
-  { label: "Аксесоари", handle: "men-belts" },
+  /* Labelled for the leaf it actually opens. It read "Аксесоари" while linking
+     to the belts category, so the tile showed a belt, said accessories, and
+     landed on belts. */
+  { label: "Колани", handle: "men-belts" },
 ];
 
 /** What the carousel actually renders, once the photograph is resolved. */

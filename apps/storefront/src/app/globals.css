@@ -68,6 +68,71 @@
     transform-origin: top center;
     animation: rp-pop var(--duration-fast) var(--ease-brand);
   }
+
+  /* The filter column unrolls from the bar it hangs off, rather than popping
+     into place. Clipped rather than scaled, so the rows inside keep their real
+     height the whole way down instead of stretching into position. */
+  .rp-panel-unfold {
+    animation: rp-unfold var(--duration-base) var(--ease-brand);
+  }
+}
+
+@keyframes rp-unfold {
+  from {
+    clip-path: inset(0 0 100% 0);
+    opacity: 0;
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+    opacity: 1;
+  }
+}
+
+/* The nav transition, which the motion scale explicitly budgets for.
+   Two halves of one gesture: the drawer slides in from the edge it is docked
+   to and its rows settle in behind it, and the page the user picked rises in
+   once the drawer has gone.
+
+   Neither keyframe sets a fill mode, so no transform survives the animation.
+   That matters: a lingering transform on a page wrapper becomes the containing
+   block for every `position: fixed` overlay inside it, which would quietly
+   break the filter panel and the size dialog on exactly the pages this runs on.
+   The staggered columns are the one exception - they need `backwards` to stay
+   hidden through their delay - and nothing inside a mega menu is fixed. */
+@layer components {
+  .rp-drawer {
+    animation: rp-drawer-in var(--duration-base) var(--ease-brand);
+  }
+
+  .rp-drawer-row,
+  .rp-menu-column {
+    animation: rp-menu-column var(--duration-base) var(--ease-brand) backwards;
+    animation-delay: var(--rp-stagger, 0ms);
+  }
+
+  .rp-page-enter {
+    animation: rp-page-enter var(--duration-base) var(--ease-brand);
+  }
+}
+
+@keyframes rp-drawer-in {
+  from {
+    transform: translateX(-100%);
+  }
+}
+
+@keyframes rp-menu-column {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+}
+
+@keyframes rp-page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(0.75rem);
+  }
 }
 
 @keyframes rp-fade {

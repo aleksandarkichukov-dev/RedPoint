@@ -1,14 +1,11 @@
-import { CampaignBand } from "@/components/home/campaign-band";
 import { CategoryCarousel } from "@/components/home/category-carousel";
 import { Hero } from "@/components/home/hero";
 import { Manifesto } from "@/components/home/manifesto";
 import { ProductGrid } from "@/components/home/product-grid";
-import { SaleRail } from "@/components/home/sale-rail";
 import { Stores } from "@/components/home/stores";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
 import {
-  getCategoryByHandle,
   getRegionId,
   listProducts,
   resolveCategoryTiles,
@@ -22,46 +19,44 @@ import {
 } from "@/lib/home";
 
 /**
- * Home page, all nine sections of the Phase 3 brief.
+ * Home page.
  *
- * The two product sections read the real catalogue. If the backend is down the
- * page still renders: the editorial sections stand on their own and the product
- * ones drop out, which is a far better failure than a 500 on the front page.
+ * The Phase 3 brief specified nine sections; the campaign band and the sale
+ * rail are gone because the client dropped the sale category, and with it the
+ * `SaleRail` and `CampaignBand` components — both are in git history if a sale
+ * section ever comes back.
+ *
+ * The product sections read the real catalogue. If the backend is down the page
+ * still renders: the editorial sections stand on their own and the product ones
+ * drop out, which is a far better failure than a 500 on the front page.
  */
 async function loadProducts(): Promise<{
   newArrivals: StoreProduct[];
-  onSale: StoreProduct[];
   categoryTiles: CategoryTile[];
 }> {
   try {
     const regionId = await getRegionId();
-    const saleCategory = await getCategoryByHandle("men-sale");
     const categoryTiles = await resolveCategoryTiles(FEATURED_CATEGORIES, regionId);
 
-    const [newest, sale] = await Promise.all([
-      /* Ordered by article number, not created_at. Every product was created
-         within seconds of the other during the seed, so created_at ranks them
-         at random while the section promises novelty. The shop's article
-         numbers do climb over time (16xxx before 17xxx), which makes them the
-         only signal of age the old site actually carries. All of them are five
-         digits, so a string sort matches a numeric one.
+    /* Ordered by article number, not created_at. Every product was created
+       within seconds of the other during the seed, so created_at ranks them at
+       random while the section promises novelty. The shop's article numbers do
+       climb over time (16xxx before 17xxx), which makes them the only signal of
+       age the old site actually carries. All of them are five digits, so a
+       string sort matches a numeric one.
 
-         This is a stand-in. Ask the client whether the bulk module should carry
-         a real "new in" flag or date, and use that instead. */
-      listProducts({ regionId, limit: 4, order: "-external_id" }),
-      saleCategory
-        ? listProducts({ regionId, categoryId: saleCategory.id, limit: 8 })
-        : Promise.resolve({ products: [], count: 0, offset: 0, limit: 0 }),
-    ]);
+       This is a stand-in. Ask the client whether the bulk module should carry a
+       real "new in" flag or date, and use that instead. */
+    const newest = await listProducts({ regionId, limit: 4, order: "-external_id" });
 
-    return { newArrivals: newest.products, onSale: sale.products, categoryTiles };
+    return { newArrivals: newest.products, categoryTiles };
   } catch {
-    return { newArrivals: [], onSale: [], categoryTiles: [] };
+    return { newArrivals: [], categoryTiles: [] };
   }
 }
 
 export default async function HomePage() {
-  const { newArrivals, onSale, categoryTiles } = await loadProducts();
+  const { newArrivals, categoryTiles } = await loadProducts();
 
   return (
     <>
@@ -83,20 +78,6 @@ export default async function HomePage() {
           title="Нови постъпления"
           products={newArrivals}
           viewAll={{ label: "виж всички", href: "/men" }}
-        />
-
-        <CampaignBand
-          imageSrc="https://picsum.photos/seed/redpoint-campaign-band/2400/1200"
-          imageAlt="Кампанийна снимка на есенната колекция"
-          headline="До 50% на избрани модели"
-          saleLabel="разпродажба"
-          cta={{ label: "към разпродажбата", href: "/men-sale" }}
-        />
-
-        <SaleRail
-          title="Разпродажба"
-          products={onSale}
-          viewAll={{ label: "виж всички", href: "/men-sale" }}
         />
 
         <Stores title="Магазини" stores={STORES} />

@@ -3,6 +3,7 @@ node_modules/
 
 # builds
 .next/
+.next-prod/
 out/
 dist/
 build/
@@ -28,6 +29,9 @@ packages/catalog/dist/
 
 # product photography the seed copies in for the local file provider
 apps/backend/static/
+
+# admin build, copied here so `medusa start` finds it — see CLAUDE.md
+apps/backend/public/
 
 # os / editor
 .DS_Store

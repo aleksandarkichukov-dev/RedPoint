@@ -18,6 +18,13 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "//": "`.next-prod` is the NEXT_DIST_DIR used to build while a dev server is running — see CLAUDE.md. Next adds this entry itself when it builds there; keeping it stops the file being rewritten and reformatted on every such build.",
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    ".next-prod/types/**/*.ts"
+  ],
   "exclude": ["node_modules"]
 }

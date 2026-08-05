@@ -91,20 +91,18 @@ export const CATEGORY_TREE: CategoryNode[] = [
           { key: "men-boxers", name: "Боксерки", id: 97 },
         ],
       },
-      { key: "men-sale", name: "Разпродажба", id: 81 },
-    ],
-  },
-  {
-    key: "women",
-    name: "Жени",
-    id: 6,
-    children: [
-      { key: "women-accessories", name: "Аксесоари", id: 38 },
-      { key: "women-underwear", name: "Бельо", id: 111 },
-      { key: "women-sale", name: "Разпродажба", id: 82 },
     ],
   },
 ];
+
+/* Dropped on the client's instruction: the "Разпродажба" branches (men id 81,
+   women id 82) and the whole "Жени" root (id 6, with Аксесоари 38 and Бельо
+   111 under it). The old site carries all of them, so a re-crawl would pull
+   them back — they are listed here rather than only deleted so the ids survive
+   if the shop ever wants them again.
+
+   Note that this removes the sale CATEGORY, not discounts: 44 of the remaining
+   products still carry a compare-at price and still render sale signage. */
 
 export interface FlatCategory {
   key: string;

@@ -71,6 +71,12 @@ The four rules that break the brand fastest:
 1. **Zero rounded corners.** `--radius-sharp: 1px` is the ceiling. `rounded-full` still compiles because it is a Tailwind static — it is banned by review, so grep for it.
 2. **Zero shadows.** Depth comes from flat colour blocks, never blur.
 3. **`#C2311E` only on sale and discount signage.** Not on errors, not on links, not decoratively. Form errors are monochrome by design.
+
+   Two standing exceptions, both in `components/layout/wordmark.tsx` and nowhere
+   else: the logo's ring is red, and it is round. It is the client's actual mark,
+   the ring is an SVG circle rather than `rounded-full` so the ban still greps
+   clean, and with the sale category gone the accent now carries exactly one
+   meaning again.
 4. **Headlines uppercase condensed, buttons lowercase.** Deliberate rhythm.
 
 Working reference for every primitive: `/design-system` in the storefront.
@@ -104,6 +110,29 @@ EUR is the store currency. BGN is never stored — it is derived at render time 
 - **`pnpm-workspace.yaml` carries two hoisting rules that Medusa forces.** Do not remove them without reading the comments there. `@types/react` is excluded from the hoist because the storefront is React 19 and the Medusa admin is React 18, and a shared hoist makes one of them compile against two copies of React's types. `@medusajs/*` is public-hoisted because Medusa's generated admin entry imports its first-party plugins by bare specifier and assumes npm's flat tree.
 - **`ts-node` is an explicit dependency of the backend.** The Medusa CLI needs it to read `medusa-config.ts`; under npm it is found transitively, under pnpm it is not.
 - **Node is 24.x locally.** Medusa 2.18 declares `engines: node >=20`, so this is allowed, but it is ahead of what Medusa tests against. If the backend behaves strangely, try Node 22 before debugging anything else.
+- **Never put `noEmit` in `apps/backend/tsconfig.json`.** `medusa build` spreads
+  that file's `compilerOptions` straight into its own `ts.createProgram` and
+  overrides only `outDir`, so a `noEmit` set there survives into the build: it
+  type-checks, writes nothing, and still logs "Backend build completed
+  successfully" and exits 0. The failure only shows up at deploy time, as an
+  almost-empty `.medusa/server`. The typecheck script passes `--noEmit` on the
+  command line, where it cannot leak. A correct build leaves `medusa-config.js`,
+  `src/`, `package.json` and `public/` in `apps/backend/.medusa/server`.
+- **Production runs from the build output, not from `apps/backend`.** Copy that
+  directory to the server and start it there; it needs its own `.env`. Started
+  anywhere else, Medusa resolves the admin bundle from `<cwd>/public/admin` and
+  dies on "Could not find index.html".
+- **The local file provider serves `/static` from the working directory**, so
+  running from `.medusa/server` looks for the product photography there and
+  every image 404s while the pages themselves render fine. `medusa build` does
+  not copy uploads. On the VPS the uploads directory has to be mounted or
+  symlinked next to the build — or, better, replaced by object storage, which
+  is one of the open questions in `docs/client-requirements.md`.
+- **`next dev` and `next build` share `.next` and silently clobber each other.**
+  A production server started while dev is running answers 500 on every route,
+  with nothing useful in either log. `next.config.ts` reads `NEXT_DIST_DIR` so a
+  production build can sit beside a running dev server:
+  `NEXT_DIST_DIR=.next-prod next build`, then the same variable on `next start`.
 - The old site sits behind Cloudflare and blocks after ~10 rapid requests. The scraper needs Playwright, 1.5–2s throttle and a resumable on-disk cache.
 - JSON-LD prices on the old site are unreliable (seen `16.00` where the page rendered `62.59`). Take the rendered DOM price and log every mismatch for the client to review.
 

@@ -7,6 +7,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
 import type { CategoryTile } from "@/lib/home";
 
+/** Pointer travel, in px, past which a press counts as a drag and not a click. */
+const DRAG_THRESHOLD = 8;
+
 export interface CategoryCarouselProps {
   title: string;
   tiles: CategoryTile[];
@@ -25,7 +28,7 @@ export function CategoryCarousel({ title, tiles }: CategoryCarouselProps) {
   const [atStart, setAtStart] = useState(true);
   const [atEnd, setAtEnd] = useState(false);
   const [dragging, setDragging] = useState(false);
-  const drag = useRef({ startX: 0, startScroll: 0, moved: 0 });
+  const drag = useRef({ startX: 0, startScroll: 0, moved: 0, captured: false });
 
   const syncEdges = useCallback(() => {
     const node = rail.current;
@@ -105,26 +108,55 @@ export function CategoryCarousel({ title, tiles }: CategoryCarouselProps) {
         )}
         onPointerDown={(event) => {
           const node = rail.current;
-          if (!node || event.pointerType === "touch") return;
+          if (!node) return;
+          /* Reset on every press, touch included. Touch scrolls natively and
+             skips the rest of this, but the click guard below still reads
+             `moved`, and a stale distance from an earlier mouse drag would
+             swallow the next tap. */
+          drag.current = {
+            startX: event.clientX,
+            startScroll: node.scrollLeft,
+            moved: 0,
+            captured: false,
+          };
+          if (event.pointerType === "touch") return;
           setDragging(true);
-          drag.current = { startX: event.clientX, startScroll: node.scrollLeft, moved: 0 };
-          node.setPointerCapture(event.pointerId);
         }}
         onPointerMove={(event) => {
           const node = rail.current;
           if (!node || !dragging) return;
           const delta = event.clientX - drag.current.startX;
           drag.current.moved = Math.abs(delta);
+
+          /* Capture only once this is unmistakably a drag rather than a click.
+             Capturing on pointerdown instead — which is the obvious place —
+             makes Chrome retarget the following `click` to this <ul>, so a
+             plain click on a tile never reaches the tile's link and the
+             carousel silently stops navigating anywhere. */
+          if (!drag.current.captured && drag.current.moved > DRAG_THRESHOLD) {
+            node.setPointerCapture(event.pointerId);
+            drag.current.captured = true;
+          }
+
           node.scrollLeft = drag.current.startScroll - delta;
         }}
         onPointerUp={(event) => {
-          rail.current?.releasePointerCapture(event.pointerId);
+          if (drag.current.captured) {
+            rail.current?.releasePointerCapture(event.pointerId);
+            drag.current.captured = false;
+          }
           setDragging(false);
         }}
-        onPointerCancel={() => setDragging(false)}
+        onPointerCancel={(event) => {
+          if (drag.current.captured) {
+            rail.current?.releasePointerCapture(event.pointerId);
+            drag.current.captured = false;
+          }
+          setDragging(false);
+        }}
         // A drag that ends on a tile must not also follow its link.
         onClickCapture={(event) => {
-          if (drag.current.moved > 8) {
+          if (drag.current.moved > DRAG_THRESHOLD) {
             event.preventDefault();
             event.stopPropagation();
           }

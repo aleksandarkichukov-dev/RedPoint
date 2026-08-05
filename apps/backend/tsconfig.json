@@ -5,7 +5,11 @@
     "module": "Node16",
     "moduleResolution": "Node16",
     "strict": true,
-    "noEmit": true,
+    // No "noEmit" here, deliberately. `medusa build` spreads these options into
+    // its own ts.createProgram and overrides only outDir, so a noEmit set here
+    // survives: the build type-checks, writes nothing, and still reports
+    // "Backend build completed successfully". The typecheck script passes
+    // --noEmit on the command line instead, where it cannot leak into the build.
     "esModuleInterop": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,

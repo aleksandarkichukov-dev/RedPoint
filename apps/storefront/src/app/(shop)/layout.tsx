@@ -12,7 +12,9 @@ export default function ShopLayout({ children }: { children: React.ReactNode }) 
   return (
     <>
       <SiteHeader />
-      <main className="pt-14 md:pt-16">{children}</main>
+      {/* Matches the fixed bar's height exactly; if the two drift, the first
+          heading on every catalogue page hides behind it. */}
+      <main className="pt-16 md:pt-20">{children}</main>
       <SiteFooter />
     </>
   );

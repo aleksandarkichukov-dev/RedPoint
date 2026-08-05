@@ -9,10 +9,15 @@ export interface FilterFacet {
   /** Query-string key: `size`, `color`, `sort`. */
   param: string;
   label: string;
-  options: { value: string; label: string; count?: number }[];
+  /** Already in the order they should be shown: sizes small to large, colours
+   *  alphabetical. The panel never re-sorts them. */
+  options: { value: string; label: string; count?: number; swatch?: string }[];
   /** Single-choice facets replace, multi-choice toggle. */
   multiple?: boolean;
 }
+
+/** Panel width, and the offset maths below, in one place. */
+const PANEL_WIDTH = 260;
 
 export interface PlpFiltersProps {
   facets: FilterFacet[];
@@ -32,7 +37,24 @@ export function PlpFilters({ facets }: PlpFiltersProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [open, setOpen] = useState<string | null>(null);
+  const [panelLeft, setPanelLeft] = useState(0);
   const container = useRef<HTMLDivElement>(null);
+  const triggers = useRef(new Map<string, HTMLButtonElement>());
+
+  /* The panel hangs under the trigger that opened it, so it reads as that
+     filter's own column rather than a slab under the whole bar. It cannot live
+     inside the row: the row scrolls sideways on narrow screens, and an overflow
+     container clips its children in both directions. So it is a sibling, placed
+     by measurement. */
+  const openPanel = (param: string) => {
+    const trigger = triggers.current.get(param);
+    const box = container.current;
+    if (trigger && box) {
+      const offset = trigger.getBoundingClientRect().left - box.getBoundingClientRect().left;
+      setPanelLeft(Math.max(0, Math.min(offset, box.clientWidth - PANEL_WIDTH)));
+    }
+    setOpen(param);
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -89,15 +111,35 @@ export function PlpFilters({ facets }: PlpFiltersProps) {
               <button
                 key={facet.param}
                 type="button"
-                onClick={() => setOpen(isOpen ? null : facet.param)}
+                ref={(node) => {
+                  if (node) triggers.current.set(facet.param, node);
+                  else triggers.current.delete(facet.param);
+                }}
+                onClick={() => (isOpen ? setOpen(null) : openPanel(facet.param))}
                 aria-expanded={isOpen}
                 aria-haspopup="listbox"
-                className="flex shrink-0 items-center gap-2 px-4 py-3 font-body text-nav whitespace-nowrap text-primary transition-colors duration-(--duration-fast) hover:bg-surface"
+                className="group/facet flex shrink-0 items-center px-4 py-3 font-body text-nav whitespace-nowrap text-primary"
               >
-                <span className={cn(chosen.length > 0 && "font-semibold")}>
+                {/* The label grows and thickens under the pointer, the same
+                    gesture the drawer uses, instead of a panel of background
+                    colour appearing behind it — this bar is meant to be text
+                    and a chevron, with no button chrome.
+
+                    Label and chevron scale together from the left edge so they
+                    keep their spacing, and because `scale` moves nothing in the
+                    layout the neighbouring triggers and the hairlines between
+                    them stay exactly where they are. */}
+                <span
+                  className={cn(
+                    "flex origin-left items-center gap-2",
+                    "transition-[scale,font-weight] duration-(--duration-fast)",
+                    "group-hover/facet:scale-108 group-hover/facet:font-semibold",
+                    chosen.length > 0 && "font-semibold",
+                  )}
+                >
                   {chosen.length > 0 ? `${facet.label}: ${chosen.join(", ")}` : facet.label}
+                  <CaretDown size={12} weight="bold" aria-hidden />
                 </span>
-                <CaretDown size={12} weight="bold" aria-hidden />
               </button>
             );
           })}
@@ -123,9 +165,14 @@ export function PlpFilters({ facets }: PlpFiltersProps) {
             key={facet.param}
             role="listbox"
             aria-label={facet.label}
-            className="rp-panel-from-top absolute inset-x-0 top-full z-30 max-h-80 overflow-y-auto border-b border-border bg-background"
+            style={{ left: panelLeft, width: PANEL_WIDTH }}
+            className="rp-panel-unfold absolute top-full z-30 max-h-96 overflow-y-auto border-x border-b border-border bg-background"
           >
-            <ul className="grid grid-cols-2 gap-x-6 p-4 sm:grid-cols-3 lg:grid-cols-5">
+            {/* Hairlines between the rows, which is the only divider this
+                system has, and a hard bar marking the chosen one. No grey
+                hover fill: the row answers the pointer the same way every
+                other list on the site does, by growing and thickening. */}
+            <ul className="flex flex-col divide-y divide-border/25">
               {facet.options.map((option) => {
                 const active = chosen.includes(option.value);
                 return (
@@ -136,13 +183,41 @@ export function PlpFilters({ facets }: PlpFiltersProps) {
                       aria-selected={active}
                       onClick={() => apply(facet.param, option.value, facet.multiple ?? false)}
                       className={cn(
-                        "flex w-full items-center justify-between gap-3 py-2 text-left font-body text-nav",
-                        active ? "font-semibold text-primary" : "text-body-text",
+                        "group/option relative flex w-full items-center gap-3 py-3 pr-4 pl-5 text-left font-body text-nav",
+                        active ? "text-primary" : "text-body-text",
                       )}
                     >
-                      <span>{option.label}</span>
+                      {/* Chosen rows carry a stamped edge rather than a tint,
+                          so the state survives being read in greyscale. */}
+                      <span
+                        aria-hidden
+                        className={cn(
+                          "absolute inset-y-0 left-0 w-[3px] origin-left bg-primary",
+                          "transition-transform duration-(--duration-fast)",
+                          active ? "scale-x-100" : "scale-x-0",
+                        )}
+                      />
+
+                      {option.swatch && (
+                        <span
+                          aria-hidden
+                          className="block size-4 shrink-0 border border-border"
+                          style={{ backgroundColor: option.swatch }}
+                        />
+                      )}
+
+                      <span
+                        className={cn(
+                          "flex-1 origin-left transition-[scale,font-weight] duration-(--duration-fast)",
+                          "group-hover/option:scale-105 group-hover/option:font-semibold",
+                          active ? "font-bold" : "font-medium",
+                        )}
+                      >
+                        {option.label}
+                      </span>
+
                       {option.count !== undefined && (
-                        <span className="font-body text-body text-muted-text">
+                        <span className="font-body text-body font-normal text-muted-text tabular-nums">
                           {option.count}
                         </span>
                       )}
