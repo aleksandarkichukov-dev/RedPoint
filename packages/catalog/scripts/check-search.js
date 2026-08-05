@@ -94,6 +94,15 @@ const sentence = [
 top = rank("черни тениски", sentence, byTitle)[0];
 check("two-word query ranks the t-shirt", top?.item.title.startsWith("Черна тениска"), top?.item.title);
 
+/* Half an answer is not an answer. The sweatshirt is black, which earns it
+   `черни` and nothing else, and the right colour of the wrong garment is the
+   most annoying kind of wrong answer — it looks like an attempt. */
+check(
+  "a half match is left out",
+  !rank("черни тениски", sentence, byTitle).some((hit) => hit.item.title.includes("суитшърт")),
+  JSON.stringify(rank("черни тениски", sentence, byTitle).map((h) => [h.score.toFixed(2), h.item.title])),
+);
+
 check(
   "a garment named only in a description does not win",
   coverage("дънки", "Класически черен суитшърт с цип") <

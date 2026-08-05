@@ -239,12 +239,23 @@ export function coverage(query: string, text: string): number {
  * The query is scored as typed and again transliterated, and the better of the
  * two wins. That way a Cyrillic query is never made worse by a rewrite it did
  * not need, and a Latin one gets its chance.
+ *
+ * The default threshold is measured, not chosen. Across the real catalogue the
+ * scores fall into two clear bands: a title answering every word of the query
+ * lands at 0.75 and above, one answering half of it at 0.72 and below. 0.75
+ * sits in the gap. Below it, `черни тениски` returned a black sweatshirt on the
+ * strength of `черни` alone — the right colour of the wrong garment, which is
+ * the most annoying kind of wrong answer because it looks like an attempt.
+ *
+ * Since it is a measured number, it is only good while the catalogue looks
+ * like this. If titles ever get much longer or much terser, measure again
+ * rather than nudging it.
  */
 export function rank<T>(
   query: string,
   candidates: T[],
   textOf: (item: T) => string,
-  { threshold = 0.6, limit = 5 }: { threshold?: number; limit?: number } = {},
+  { threshold = 0.75, limit = 5 }: { threshold?: number; limit?: number } = {},
 ): Scored<T>[] {
   const typed = normalize(query);
   const converted = toCyrillic(query);
