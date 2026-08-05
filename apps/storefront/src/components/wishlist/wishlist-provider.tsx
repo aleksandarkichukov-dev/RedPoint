@@ -23,6 +23,8 @@ interface WishlistValue {
   ready: boolean;
   has: (handle: string) => boolean;
   toggle: (handle: string) => void;
+  /** Drops anything the catalogue no longer returns. See `keepOnly`. */
+  keepOnly: (handles: string[]) => void;
 }
 
 const WishlistContext = createContext<WishlistValue | null>(null);
@@ -77,10 +79,36 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  /**
+   * Keeps only the handles the catalogue still answers for.
+   *
+   * A favourite outlives the product: the shop deletes a line, and the entry
+   * stays in the browser forever. The header would keep counting it while the
+   * page could not show it — a badge saying 3 above a list of 2, which reads as
+   * the page being broken rather than as the product being gone.
+   *
+   * Called by the favourites page with what actually came back, so the list
+   * repairs itself the next time it is opened.
+   */
+  const keepOnly = useCallback((alive: string[]) => {
+    setHandles((current) => {
+      const keep = new Set(alive);
+      const next = current.filter((handle) => keep.has(handle));
+      if (next.length === current.length) return current;
+
+      try {
+        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      } catch {
+        /* Same as toggle: losing the write is not worth an error message. */
+      }
+      return next;
+    });
+  }, []);
+
   const has = useCallback((handle: string) => handles.includes(handle), [handles]);
 
   return (
-    <WishlistContext.Provider value={{ handles, ready, has, toggle }}>
+    <WishlistContext.Provider value={{ handles, ready, has, toggle, keepOnly }}>
       {children}
     </WishlistContext.Provider>
   );

@@ -16,7 +16,7 @@ import { getWishlistCards } from "@/lib/wishlist-actions";
  * came back to check.
  */
 export function WishlistGrid() {
-  const { handles, ready } = useWishlist();
+  const { handles, keepOnly, ready } = useWishlist();
   const [cards, setCards] = useState<ProductCardProps[] | null>(null);
   const [failed, setFailed] = useState(false);
 
@@ -34,6 +34,9 @@ export function WishlistGrid() {
         if (current) {
           setCards(result);
           setFailed(false);
+          /* Anything that did not come back is gone from the shop. Dropping it
+             here is what keeps the header's count and this page in agreement. */
+          keepOnly(result.map((card) => card.handle));
         }
       })
       .catch(() => {
@@ -43,7 +46,7 @@ export function WishlistGrid() {
     return () => {
       current = false;
     };
-  }, [handles, ready]);
+  }, [handles, keepOnly, ready]);
 
   if (!ready || (cards === null && !failed)) {
     return (

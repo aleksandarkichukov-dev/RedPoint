@@ -127,16 +127,27 @@ export function SiteHeader({ overlay = false }: SiteHeaderProps) {
               }
               className="relative grid size-11 place-items-center text-[20px] md:size-12 md:text-[24px]"
             >
-              <Heart aria-hidden />
-              {/* Only once the list has been read, so the server's HTML and the
-                  first client render agree. A badge that appears a beat later
-                  is better than one that flickers off. */}
+              {/* The glyph fills when the list has something in it. That is the
+                  signal doing the work — legible at a glance and at any size,
+                  where a two-digit number in a corner is not. */}
+              <Heart weight={wishlistCount > 0 ? "fill" : "regular"} aria-hidden />
+
+              {/* A bare numeral, not a filled block. The bar is transparent
+                  over the hero, so a black chip would be a square floating on
+                  the photograph; built from currentColor the count inverts with
+                  the bar for free.
+
+                  It also sits clear of the glyph rather than on top of it — the
+                  chip overlapped the heart's upper lobe and both read as
+                  smudged. Only once storage has been read: the server has no
+                  localStorage, and a number rendered before then would
+                  contradict the HTML it was sent. */}
               {wishlistCount > 0 && (
                 <span
                   aria-hidden
-                  className="absolute top-1.5 right-1.5 grid min-w-4 place-items-center bg-primary px-1 font-body text-[0.625rem] leading-4 font-semibold text-background md:top-2 md:right-2"
+                  className="pointer-events-none absolute top-1 right-1 font-body text-[0.5625rem] leading-none font-semibold tabular-nums md:top-1.5 md:right-1.5 md:text-[0.625rem]"
                 >
-                  {wishlistCount}
+                  {wishlistCount > 9 ? "9+" : wishlistCount}
                 </span>
               )}
             </Link>
