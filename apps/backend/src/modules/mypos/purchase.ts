@@ -1,0 +1,99 @@
+import { getMyposConfig } from "./config";
+import { sign, type MyposParams } from "./signature";
+
+/**
+ * Builds the signed IPCPurchase form that sends a shopper to the myPOS page.
+ *
+ * The parameter ORDER is not cosmetic. myPOS builds the signature by joining
+ * the values in the order they appear, so the object below has to be written
+ * in the order myPOS document and sent in that same order. Reordering these
+ * lines silently breaks every payment.
+ */
+
+export interface PurchaseLine {
+  name: string;
+  quantity: number;
+  /** Unit price, tax inclusive, as the shopper saw it. */
+  unitPrice: number;
+}
+
+export interface PurchaseRequest {
+  orderId: string;
+  /** Goods only. Delivery is a separate field myPOS adds to the total. */
+  itemsTotal: number;
+  deliveryTotal: number;
+  currency: string;
+  lines: PurchaseLine[];
+  customer: {
+    email: string;
+    firstName: string;
+    lastName: string;
+    phone?: string;
+    city?: string;
+    postalCode?: string;
+    address?: string;
+  };
+}
+
+/** myPOS wants plain decimals with two places, not locale-formatted money. */
+function amount(value: number): string {
+  return value.toFixed(2);
+}
+
+export interface SignedPurchase {
+  /** Where the browser POSTs. */
+  url: string;
+  /** Fields to render as hidden inputs, in this exact order. */
+  fields: MyposParams;
+}
+
+export function buildPurchase(request: PurchaseRequest): SignedPurchase {
+  const config = getMyposConfig();
+
+  /* URL_Notify is the one that authorises the payment. myPOS say it plainly:
+     do not rely on the browser coming back to URL_OK, because a shopper can
+     close the tab and a hostile one can call it themselves. The server-to-
+     server notify is the truth, and it is verified by signature. */
+  const fields: MyposParams = {
+    IPCmethod: "IPCPurchase",
+    IPCVersion: "1.4",
+    IPCLanguage: "BG",
+    SID: config.sid,
+    WalletNumber: config.wallet,
+    KeyIndex: config.keyIndex,
+    Amount: amount(request.itemsTotal + request.deliveryTotal),
+    Currency: request.currency.toUpperCase(),
+    OrderID: request.orderId,
+    URL_OK: `${config.storefrontUrl}/order/confirm/${request.orderId}`,
+    URL_Cancel: `${config.storefrontUrl}/checkout?payment=cancelled`,
+    // /hooks, not /store: Medusa's store routes demand a publishable API key
+    // that myPOS cannot send. See the route file.
+    URL_Notify: `${config.backendUrl}/hooks/mypos/notify`,
+    /* 1 means the customer details below are supplied by us, so the shopper is
+       not asked to retype what checkout already collected. */
+    PaymentParametersRequired: "1",
+    CustomerEmail: request.customer.email,
+    CustomerFirstNames: request.customer.firstName,
+    CustomerFamilyName: request.customer.lastName,
+    CustomerPhone: request.customer.phone ?? "",
+    CustomerCountry: "BGR",
+    CustomerCity: request.customer.city ?? "",
+    CustomerZIPCode: request.customer.postalCode ?? "",
+    CustomerAddress: request.customer.address ?? "",
+    CartItems: String(request.lines.length),
+  };
+
+  request.lines.forEach((line, index) => {
+    const n = index + 1;
+    fields[`Article_${n}`] = line.name;
+    fields[`Quantity_${n}`] = String(line.quantity);
+    fields[`Price_${n}`] = amount(line.unitPrice);
+    fields[`Amount_${n}`] = amount(line.unitPrice * line.quantity);
+    fields[`Currency_${n}`] = request.currency.toUpperCase();
+  });
+
+  fields.Delivery = amount(request.deliveryTotal);
+  fields.Signature = sign(fields, config.privateKey);
+
+  return { url: config.checkoutUrl, fields };
+}
