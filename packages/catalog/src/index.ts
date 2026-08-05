@@ -6,6 +6,7 @@
  * it) depend on this, so it lives in one place. Duplicating either would let
  * the two drift, and the failure mode is a silently mis-seeded catalogue.
  */
+export * from "./bulk";
 export * from "./categories";
 export * from "./colors";
 export * from "./price";
