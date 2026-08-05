@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 
 export default function WishlistPage() {
   return (
-    <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-8 px-4 py-8 md:px-8 md:py-12">
+    <div className="mx-auto flex w-full max-w-(--container-page) flex-col gap-8 px-4 py-8 md:px-8 md:py-12">
       <h1 className="text-display">Любими</h1>
       <WishlistGrid />
     </div>
