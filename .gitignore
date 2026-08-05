@@ -14,6 +14,11 @@ build/
 .env.*
 !.env.example
 
+# key material: PEM files live on disk rather than as escaped .env values.
+# The README explaining what belongs there is kept; nothing else is.
+apps/backend/secrets/*
+!apps/backend/secrets/README.md
+
 # scraper output: regenerable, and it is the client's live catalogue data.
 # The scraper source is the work; its output is not.
 seed/images/
