@@ -40,20 +40,35 @@ Flat, and the same for both couriers:
 Never accept these by email. The myPOS private key is equivalent to a password
 on the account.
 
-### myPOS, Phase 5
+### myPOS, Phase 5 — supplied, not yet proven
 
-Sandbox **and** production. Without sandbox, every test is a real transaction.
+SID, wallet, key index, private key and certificate are all in place, and
+signing is verified against them by `check-mypos-signature.ts`. What is left is
+not a credential:
 
-- Store ID (SID)
-- Wallet number
-- Private key, for signing our requests
-- myPOS certificate, for verifying the signature on their IPN callbacks
-- Key index
+- **The key is 1024-bit; myPOS's own documentation requires 2048.** Their portal
+  issued it. If the first payment is rejected, this is where to start — ask them
+  to reissue at 2048 rather than debugging the signing code, which passes 13
+  checks against these exact keys.
+- **A public HTTPS address**, so `URL_Notify` can reach us. myPOS call it server
+  to server and localhost is not on their network, which is why the accepting
+  path has never run. The VPS or a tunnel closes this.
+- **Production credentials** at go-live, kept separate from the sandbox pair.
 
-### Speedy, Phase 6
+### Speedy, Phase 6 — supplied and refused
 
-- Web API username and password
-- Client number from the contract
+Username 1010258 and client number 201930784000 are configured. Speedy reject
+them: `Достъпът е отказан`, reference **EE20260806013856656DBPFFRHZ**, on
+`/location/site` — the office list, the most basic read there is.
+
+Quote that reference to Speedy and ask, in this order:
+
+1. **Is Web API access enabled for this user?** Portal credentials are not API
+   credentials; the API is switched on separately.
+2. **Is this the API password rather than the website one?**
+
+Nothing courier-shaped can be tested until this answers, because Speedy
+authenticate every call including the office list.
 
 ### Econt, Phase 6
 
