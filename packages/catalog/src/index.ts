@@ -11,3 +11,4 @@ export * from "./categories";
 export * from "./colors";
 export * from "./price";
 export * from "./schema";
+export * from "./search";
