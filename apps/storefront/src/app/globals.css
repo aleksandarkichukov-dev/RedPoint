@@ -64,6 +64,13 @@
     animation: rp-pop 200ms var(--ease-brand);
   }
 
+  /* The help panel grows out of the button that opened it, in the corner it
+     lives in, rather than swelling from its own middle. */
+  .rp-panel-from-corner {
+    transform-origin: bottom right;
+    animation: rp-pop var(--duration-fast) var(--ease-brand);
+  }
+
   .rp-panel-from-top {
     transform-origin: top center;
     animation: rp-pop var(--duration-fast) var(--ease-brand);

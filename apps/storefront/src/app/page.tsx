@@ -1,3 +1,4 @@
+import { ChatPanel } from "@/components/chat/chat-panel";
 import { CategoryCarousel } from "@/components/home/category-carousel";
 import { Hero } from "@/components/home/hero";
 import { Manifesto } from "@/components/home/manifesto";
@@ -86,6 +87,7 @@ export default async function HomePage() {
       </main>
 
       <SiteFooter />
+      <ChatPanel />
     </>
   );
 }
