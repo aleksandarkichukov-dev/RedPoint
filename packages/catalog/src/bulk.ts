@@ -68,8 +68,14 @@ export interface BulkParseResult {
   issues: BulkIssue[];
 }
 
-/** Leaf categories only — a product never sits on a grouping level. */
-function leafCategories() {
+/**
+ * Leaf categories only — a product never sits on a grouping level.
+ *
+ * Exported so the template can print the list the validation checks against.
+ * Two hand-kept copies would agree until the day the tree changes, and then the
+ * file would name a category the import rejects.
+ */
+export function leafCategories() {
   const flat = flattenCategories();
   return flat.filter((category) => !flat.some((other) => other.parentKey === category.key));
 }

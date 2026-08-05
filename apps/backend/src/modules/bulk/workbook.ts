@@ -1,6 +1,7 @@
 import ExcelJS from "exceljs";
 import {
   BULK_COLUMNS,
+  leafCategories,
   type BulkColumn,
   type BulkProduct,
   type BulkRow,
@@ -148,9 +149,35 @@ export async function writeWorkbook(products: BulkProduct[]): Promise<Buffer> {
   return Buffer.from(await workbook.xlsx.writeBuffer());
 }
 
-/** The empty file with one filled-in example row to copy. */
+/**
+ * The template, which is the instructions.
+ *
+ * Worked examples rather than an empty grid: one article in two colours, so the
+ * repeating product columns are visible as a pattern rather than described as a
+ * rule, and one article whose old price is blank, because "leave it empty" is
+ * easier to copy than to read.
+ *
+ * The second sheet carries what a filled row cannot show — the category names
+ * that are accepted, and how a photograph has to be named for the import to
+ * know which article and colour it belongs to. Both are things people get wrong
+ * once and then never again, and both are cheaper to answer in the file than
+ * over the phone.
+ */
 export async function writeTemplate(): Promise<Buffer> {
-  return writeWorkbook([
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = "Red Point";
+  workbook.created = new Date();
+
+  const sheet = workbook.addWorksheet("Артикули");
+  sheet.columns = BULK_COLUMNS.map((column) => ({
+    header: column,
+    key: column,
+    width: column === "Описание" ? 60 : column === "Име" ? 42 : column === "Състав" ? 24 : 14,
+  }));
+  sheet.getRow(1).font = { bold: true };
+  sheet.views = [{ state: "frozen", ySplit: 1 }];
+
+  const examples: BulkProduct[] = [
     {
       sku: "17350",
       name: "Дънки в по-светъл деним",
@@ -162,7 +189,86 @@ export async function writeTemplate(): Promise<Buffer> {
       description: "Мъжки дънки с права кройка.",
       colors: [
         { name: "синьо", sizes: [{ label: "31", quantity: 5 }, { label: "32", quantity: 3 }] },
+        { name: "черно", sizes: [{ label: "31", quantity: 2 }, { label: "32", quantity: 0 }] },
       ],
     },
-  ]);
+    {
+      sku: "20144",
+      name: "Черна тениска с лого",
+      categoryKey: "men-tshirts",
+      categoryName: "Тениски",
+      price: 25,
+      compareAtPrice: null,
+      material: "100% памук",
+      description: null,
+      colors: [
+        { name: "черно", sizes: [{ label: "M", quantity: 8 }, { label: "L", quantity: 4 }] },
+      ],
+    },
+  ];
+
+  for (const product of examples) {
+    for (const color of product.colors) {
+      for (const size of color.sizes) {
+        sheet.addRow({
+          "Артикул": product.sku,
+          "Име": product.name,
+          "Категория": product.categoryName,
+          "Цвят": color.name,
+          "Размер": size.label,
+          "Количество": size.quantity,
+          "Цена": product.price,
+          "Стара цена": product.compareAtPrice ?? "",
+          "Състав": product.material ?? "",
+          "Описание": product.description ?? "",
+        });
+      }
+    }
+  }
+
+  const help = workbook.addWorksheet("Как се попълва");
+  help.columns = [{ width: 26 }, { width: 96 }];
+
+  const heading = (text: string) => {
+    const row = help.addRow([text, ""]);
+    row.font = { bold: true };
+  };
+
+  heading("ЕДИН РЕД = ЕДИН РАЗМЕР");
+  help.addRow(["", "Артикул в 2 цвята по 3 размера се пише на 6 реда."]);
+  help.addRow(["", "Име, категория, цена, състав и описание се повтарят на всеки ред от артикула."]);
+  help.addRow(["", "Вижте първия лист: артикул 17350 заема 4 реда."]);
+  help.addRow([]);
+
+  heading("ЗАДЪЛЖИТЕЛНИ КОЛОНИ");
+  help.addRow(["Артикул", "Номерът от етикета. По него системата познава дали артикулът вече съществува."]);
+  help.addRow(["Цвят", "Как ще се вижда в сайта: синьо, черно, бежово."]);
+  help.addRow(["Размер", "31, 32, M, L, XL."]);
+  help.addRow(["Количество", "Брой в наличност. 0 значи изчерпан, но артикулът остава в сайта."]);
+  help.addRow([]);
+
+  heading("ЗА НОВ АРТИКУЛ ТРЯБВАТ И");
+  help.addRow(["Име", "Заглавието в сайта."]);
+  help.addRow(["Категория", "Точно както е изписана долу."]);
+  help.addRow(["Цена", "В евро. И 45,00 и 45.00 се приемат."]);
+  help.addRow([]);
+  help.addRow(["Стара цена", "Само при намаление. Оставете празно, ако няма — тогава няма и червен етикет."]);
+  help.addRow([]);
+
+  heading("ИМЕНА НА СНИМКИТЕ");
+  help.addRow(["", "артикул_цвят_номер.jpg — цветът се пише точно както в колоната Цвят."]);
+  help.addRow(["", "17350_синьо_1.jpg   ← първата е главната снимка в каталога"]);
+  help.addRow(["", "17350_синьо_2.jpg"]);
+  help.addRow(["", "17350_черно_1.jpg"]);
+  help.addRow(["", "Слагат се в един .zip. Подпапки не пречат."]);
+  help.addRow(["", "За вече съществуващ артикул качете само .zip — таблица не е нужна."]);
+  help.addRow([]);
+
+  heading("КАТЕГОРИИ");
+  help.addRow(["", "Само тези имена се приемат:"]);
+  for (const category of leafCategories()) {
+    help.addRow(["", category.name]);
+  }
+
+  return Buffer.from(await workbook.xlsx.writeBuffer());
 }
