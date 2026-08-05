@@ -131,14 +131,14 @@ export async function ask(message: string): Promise<ChatAnswer> {
 
     case "search": {
       const products = await catalogue();
-      /* Title and description together: someone searching for `лен` is
-         describing the fabric, which the title often does not carry. */
-      const hits = rank(
-        intent.query ?? message,
-        products,
-        (product) => `${product.title} ${product.description ?? ""}`,
-        { limit: 3 },
-      );
+      /* Titles only, and this was learned the hard way. Ranking over the
+         description too put a sweatshirt at the top of a search for black
+         t-shirts, because these descriptions suggest what to wear a garment
+         with — half of them mention дънки or тениска while being neither. A
+         title names what the thing IS. */
+      const hits = rank(intent.query ?? message, products, (product) => product.title, {
+        limit: 3,
+      });
 
       if (hits.length === 0) {
         return {

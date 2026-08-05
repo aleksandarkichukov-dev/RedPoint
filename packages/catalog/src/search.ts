@@ -5,17 +5,18 @@
  * right. Bulgarians type the same word four ways — `дънки`, `denki`, `danki`,
  * `dunki` — and an exact match answers one of them.
  *
- * The pipeline is three steps, each of which can be wrong on its own without
+ * The pipeline is four steps, each able to be wrong on its own without
  * breaking the next:
  *
- *   1. normalise   lowercase, strip accents, collapse whitespace
+ *   1. normalise   lowercase, strip Latin accents, collapse whitespace
  *   2. cyrillicise Latin to Cyrillic, longest digraphs first
- *   3. compare     trigram overlap, because step 2 cannot be exact
+ *   3. compare     trigram overlap, per word, because step 2 cannot be exact
+ *   4. fall back   compare consonant skeletons when the spelling misses
  *
- * Step 3 is what carries the vowels. `ъ` has no Latin letter of its own, so
- * people substitute whatever is nearest to hand and `denki`, `danki` and
- * `dunki` all arrive slightly wrong. Trigram overlap does not care: `денки` and
- * `дънки` share four of six trigrams, which is far above anything unrelated.
+ * Step 4 exists because step 3 was not enough, which took measuring to find
+ * out. `ъ` has no Latin letter, so `denki`, `danki` and `dunki` all arrive one
+ * vowel wrong, and `денки` against `дънки` scores 0.50 — the same as noise.
+ * Drop the vowels and all three read `днк`, which is `дънки` exactly.
  *
  * No Medusa and no HTTP in here, so it is testable with plain node.
  */
@@ -171,6 +172,68 @@ export interface Scored<T> {
 }
 
 /**
+ * A word with its vowels removed.
+ *
+ * This is how the `ъ` problem is finally closed. No Latin letter stands for it,
+ * so `denki`, `danki` and `dunki` all arrive one vowel wrong, and trigram
+ * overlap puts `денки` against `дънки` at 0.50 — the same score noise reaches.
+ * Strip the vowels and all three become `днк`, which is `дънки` exactly, while
+ * `анорак` and `качулка` stay at zero.
+ *
+ * Below three consonants it is switched off: `риза` and `роза` both reduce to
+ * `рз`, and at that length the skeleton stops identifying a word.
+ */
+function skeleton(word: string): string {
+  return word.replace(/[аеиоуъюяьaeiouy]/g, "");
+}
+
+/** The better of the two readings of one word, spelled and skeletal. */
+function wordScore(query: string, candidate: string): number {
+  const direct = similarity(query, candidate);
+  if (direct === 1) return 1;
+
+  const left = skeleton(query);
+  const right = skeleton(candidate);
+  if (left.length < 3 || right.length < 3) return direct;
+
+  /* Discounted, so a correctly spelled match always outranks a skeletal one
+     and the ordering never turns on a vowel nobody typed. */
+  return Math.max(direct, similarity(left, right) * 0.95);
+}
+
+/**
+ * How much of a query a piece of text answers, word by word.
+ *
+ * Comparing the whole query as one bag of trigrams is the obvious version and
+ * it fails on real sentences. `дай да видя черни тениски` returned cargo
+ * trousers and sandals: filler words carry trigrams that live in every
+ * Bulgarian sentence, and once a query is long enough, a long text contains
+ * most of them by chance — which the overlap coefficient, dividing by the
+ * smaller set, scores as a strong hit.
+ *
+ * Scoring each word against each word of the text and averaging asks the
+ * question properly: a title answering `черни` and `тениски` beats one
+ * answering neither, whatever else it happens to contain.
+ */
+export function coverage(query: string, text: string): number {
+  const queryWords = normalize(query).split(" ").filter((word) => word.length >= 3);
+  const textWords = normalize(text).split(" ").filter(Boolean);
+  if (queryWords.length === 0 || textWords.length === 0) return 0;
+
+  let total = 0;
+  for (const word of queryWords) {
+    let best = 0;
+    for (const candidate of textWords) {
+      best = Math.max(best, wordScore(word, candidate));
+      if (best === 1) break;
+    }
+    total += best;
+  }
+
+  return total / queryWords.length;
+}
+
+/**
  * Ranks candidates against a query, in both scripts.
  *
  * The query is scored as typed and again transliterated, and the better of the
@@ -181,7 +244,7 @@ export function rank<T>(
   query: string,
   candidates: T[],
   textOf: (item: T) => string,
-  { threshold = 0.45, limit = 5 }: { threshold?: number; limit?: number } = {},
+  { threshold = 0.6, limit = 5 }: { threshold?: number; limit?: number } = {},
 ): Scored<T>[] {
   const typed = normalize(query);
   const converted = toCyrillic(query);
@@ -197,7 +260,7 @@ export function rank<T>(
       const text = textOf(item);
       return {
         item,
-        score: Math.max(similarity(typed, text), similarity(converted, text)),
+        score: Math.max(coverage(typed, text), coverage(converted, text)),
       };
     })
     .filter((entry) => entry.score >= threshold)

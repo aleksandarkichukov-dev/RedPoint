@@ -57,11 +57,22 @@ const RULES: { kind: IntentKind; words: string[] }[] = [
   { kind: "sizes", words: ["таблица", "мерки", "размерна", "как да мери", "кой размер"] },
 ];
 
-/** Words that carry no meaning for a catalogue search, stripped before ranking. */
+/**
+ * Words that carry no meaning for a catalogue search.
+ *
+ * Not politeness — weight. `дай да видя черни тениски` ranked cargo trousers
+ * first, because three of its five words appear in every Bulgarian sentence
+ * and drowned the two that meant something. `coverage` scores word by word, so
+ * a word matching nothing now costs a candidate rather than helping a wrong
+ * one, and the ones that could never mean a garment are dropped before it.
+ */
 const FILLER = [
   "имате", "имали", "ли", "има", "искам", "търся", "бих", "може", "мога",
   "здравейте", "моля", "за", "на", "в", "с", "и", "от", "по", "нещо",
   "мъжки", "мъжка", "мъжко", "някакви", "някакво", "ми", "трябва",
+  "дай", "дайте", "да", "видя", "видим", "покажи", "покажете", "пусни",
+  "този", "тази", "тези", "тия", "някой", "някаква", "нещата", "май",
+  "аз", "ние", "ви", "те", "си", "ще", "как", "какви", "какво", "кои",
 ];
 
 /**

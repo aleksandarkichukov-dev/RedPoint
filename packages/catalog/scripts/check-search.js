@@ -9,6 +9,7 @@ const {
   rank,
   articleNumber,
   isLatin,
+  coverage,
 } = require("../dist/index.js");
 
 let pass = 0, fail = 0;
@@ -76,6 +77,38 @@ check("limit is respected", rank("мъжки", catalogue, byTitle, { threshold: 
 /* The floor exists because the overlap coefficient scores a two-trigram query
    as a perfect hit against any sentence that happens to contain it. */
 check("too-short query returns nothing", rank("ри", catalogue, byTitle, { threshold: 0 }).length === 0);
+
+// --- whole sentences, which is what people actually send -------------------
+/* `дай да видя черни тениски` once returned cargo trousers and sandals. Two
+   causes, both fixed and both guarded here: the query was scored as one bag of
+   trigrams, so filler words drowned the meaning; and it was scored against the
+   description too, and these descriptions suggest what to wear a garment WITH,
+   so half of them mention дънки or тениска while being neither. */
+const sentence = [
+  { title: "Черна тениска с ефектен графичен принт" },
+  { title: "Спортен карго панталон с декоративни каишки" },
+  { title: "Летни мъжки сандали и чехли в едно" },
+  { title: "Класически черен суитшърт с цип" },
+];
+
+top = rank("черни тениски", sentence, byTitle)[0];
+check("two-word query ranks the t-shirt", top?.item.title.startsWith("Черна тениска"), top?.item.title);
+
+check(
+  "a garment named only in a description does not win",
+  coverage("дънки", "Класически черен суитшърт с цип") <
+    coverage("дънки", "Тъмносини дънки с изсветлен ефект"),
+);
+
+// --- the consonant skeleton ------------------------------------------------
+/* Trigram overlap alone puts денки/данки/дунки at 0.50 against дънки, which is
+   where noise sits. The skeleton is what separates them. */
+for (const typed of ["denki", "danki", "dunki"]) {
+  const hit = rank(typed, [{ title: "Тъмносини дънки с изсветлен ефект" }, { title: "Oversize анорак с качулка" }], byTitle)[0];
+  check(`"${typed}" reaches the jeans, not the anorak`, hit?.item.title.includes("дънки"), hit?.item.title);
+}
+
+check("skeleton is off below three consonants", coverage("риза", "роза") < 0.6, String(coverage("риза", "роза")));
 
 // --- article numbers -------------------------------------------------------
 check("finds a bare article", articleNumber("17350") === "17350");
