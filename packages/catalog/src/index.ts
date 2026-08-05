@@ -9,6 +9,7 @@
 export * from "./bulk";
 export * from "./categories";
 export * from "./colors";
+export * from "./intent";
 export * from "./price";
 export * from "./schema";
 export * from "./search";

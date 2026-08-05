@@ -24,12 +24,13 @@
 export function normalize(text: string): string {
   return text
     .toLowerCase()
-    /* NFD splits an accented letter into letter plus combining mark, and the
-       range below removes the marks. Bulgarian does not use accents, but people
-       paste from places that do, and `ѝ` (which Bulgarian does use) survives
-       because it is the word "her", not a typo for `и`. */
+    /* Accents are stripped from Latin letters only. Stripping them everywhere
+       is the obvious version and it is wrong: `й` decomposes to `и` plus a
+       combining breve, so `здравейте` came out as `здравеите` and stopped
+       matching a keyword list written in ordinary Bulgarian. `й` and `ѝ` are
+       letters here, not decoration. */
     .normalize("NFD")
-    .replace(/[̀-̈̊-ͯ]/g, "")
+    .replace(/([a-z])[̀-ͯ]+/g, "$1")
     .normalize("NFC")
     .replace(/[^\p{L}\p{N}\s-]/gu, " ")
     .replace(/\s+/g, " ")
