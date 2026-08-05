@@ -1,7 +1,7 @@
 import ExcelJS from "exceljs";
 import {
   BULK_COLUMNS,
-  leafCategories,
+  flattenCategories,
   type BulkColumn,
   type BulkProduct,
   type BulkRow,
@@ -266,7 +266,15 @@ export async function writeTemplate(): Promise<Buffer> {
 
   heading("КАТЕГОРИИ");
   help.addRow(["", "Само тези имена се приемат:"]);
-  for (const category of leafCategories()) {
+  /* Derived here from the shared tree rather than imported as a ready-made
+     list. Same data either way, but `medusa develop`'s compiler has failed to
+     see a freshly added @redpoint/catalog export before — documented in
+     CLAUDE.md — and this route only runs when someone presses the button, so
+     the failure would surface as a dead download rather than a startup error.
+     Leaves only: a product never sits on a grouping level. */
+  const tree = flattenCategories();
+  for (const category of tree) {
+    if (tree.some((other) => other.parentKey === category.key)) continue;
     help.addRow(["", category.name]);
   }
 
