@@ -58,9 +58,23 @@ Sandbox **and** production. Without sandbox, every test is a real transaction.
 ### Econt, Phase 6
 
 - B2B username and password
-- Shop identifier for their delivery widget
+- Shop identifier (`id_shop`) for their delivery widget
 
-Office lists are public on both; waybills are not.
+**These block the whole of Phase 6, not just the waybills.** An earlier note
+here claimed office lists were public on both couriers. That was wrong, and
+worth correcting because it is the reason Phase 6 looked half-startable:
+
+- Speedy authenticate **every** call, offices included. Their documentation is
+  explicit that the API "requires user password authentication for each
+  method", with `userName` and `password` in the body of each request. A test
+  account is requested by email.
+- Econt's delivery widget takes `id_shop` as a mandatory parameter, so the
+  iframe the brief tells us to use cannot be embedded without it either.
+
+So nothing courier-shaped can be built or tested first and credentialed later.
+Flat shipping prices through Medusa's manual provider carry checkout in the
+meantime: an order can be placed and priced, but no office can be chosen from a
+real list and no waybill can be issued.
 
 ## Decisions
 
