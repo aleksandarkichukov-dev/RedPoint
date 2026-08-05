@@ -136,6 +136,33 @@ EUR is the store currency. BGN is never stored — it is derived at render time 
 - The old site sits behind Cloudflare and blocks after ~10 rapid requests. The scraper needs Playwright, 1.5–2s throttle and a resumable on-disk cache.
 - JSON-LD prices on the old site are unreliable (seen `16.00` where the page rendered `62.59`). Take the rendered DOM price and log every mismatch for the client to review.
 
+## Phase 5 is not finished
+
+Cash on delivery works end to end. Card payment does not, and the gap is bigger
+than it looks from the code, which is why it is written down rather than left
+to be rediscovered.
+
+**Nothing has ever been paid.** The myPOS checkout page has not been opened
+once. Signing is proven against the shop's real keys — 13 checks, run by
+`src/scripts/check-mypos-signature.ts` — and the purchase form builds correctly,
+but whether myPOS accept it is unknown. Their portal issued a 1024-bit key while
+their own docs require 2048; if the first payment is rejected, start there.
+
+**The notification's accepting path has never run.** Only the rejecting path is
+tested. myPOS call `URL_Notify` server to server over HTTPS and localhost is not
+reachable from their network, so closing this needs a public address — the VPS,
+or a tunnel. Until then the capture code is unexercised.
+
+Three gaps found late, all ordinary shop behaviour rather than edge cases:
+
+- A cancelled payment returns to `/checkout?payment=cancelled` and the page
+  ignores the parameter, so the shopper lands in an empty checkout with no
+  explanation.
+- There is no refund path at all. A return means refunding by hand in the myPOS
+  portal, and Medusa will not know it happened.
+- An abandoned payment leaves an unpaid order forever. Visible in the admin,
+  which is better than losing it, but nothing chases or clears it.
+
 ## Blocked on the client
 
 Phases 5 and 6 need credentials and decisions that live outside this repo.
