@@ -64,6 +64,7 @@ export default async function ProductPage({ params }: PageProps) {
       </nav>
 
       <ProductDetail
+        handle={product.handle}
         title={product.title}
         articleNo={product.metadata?.article_no ?? null}
         price={displayPrice(product) ?? 0}

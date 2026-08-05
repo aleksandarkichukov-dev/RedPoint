@@ -24,6 +24,8 @@ export interface ProductColor {
 
 export interface ProductCardProps {
   href: string;
+  /** The product's handle, so the heart knows what it is favouriting. */
+  handle: string;
   name: string;
   /** Primary image, plus an optional second one revealed on hover. */
   images: { src: string; alt?: string }[];
@@ -40,6 +42,7 @@ const MAX_VISIBLE_SWATCHES = 4;
 
 export function ProductCard({
   href,
+  handle,
   name,
   images,
   price,
@@ -119,7 +122,7 @@ export function ProductCard({
           </Badge>
         )}
 
-        <WishlistButton productName={name} className="absolute top-0 right-0" />
+        <WishlistButton handle={handle} productName={name} className="absolute top-0 right-0" />
       </div>
 
       <div className="flex flex-col gap-2">

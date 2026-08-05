@@ -19,6 +19,8 @@ export interface PdpColor {
 }
 
 export interface ProductDetailProps {
+  /** The product's handle, so the heart knows what it is favouriting. */
+  handle: string;
   title: string;
   articleNo: string | null;
   price: number;
@@ -38,6 +40,7 @@ export interface ProductDetailProps {
  * navigation.
  */
 export function ProductDetail({
+  handle,
   title,
   articleNo,
   price,
@@ -124,7 +127,7 @@ export function ProductDetail({
                 </p>
               )}
             </div>
-            <WishlistButton productName={title} className="-mr-2 shrink-0" />
+            <WishlistButton handle={handle} productName={title} className="-mr-2 shrink-0" />
           </header>
 
           <p className="flex flex-wrap items-baseline gap-x-3 gap-y-1">

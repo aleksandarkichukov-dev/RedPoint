@@ -35,6 +35,7 @@ const DEMO_COLORS = [
 const DEMO_PRODUCTS = [
   {
     href: "/design-system",
+    handle: "demo-jacket",
     name: "Мъжко яке с подплата 17497",
     price: 89.9,
     images: [
@@ -45,6 +46,7 @@ const DEMO_PRODUCTS = [
   },
   {
     href: "/design-system",
+    handle: "demo-denim",
     name: "Дънки права кройка 15786",
     price: 45.5,
     compareAtPrice: 65,
@@ -56,6 +58,7 @@ const DEMO_PRODUCTS = [
   },
   {
     href: "/design-system",
+    handle: "demo-shirt",
     name: "Риза с дълъг ръкав 16204",
     price: 32,
     images: [
@@ -65,6 +68,7 @@ const DEMO_PRODUCTS = [
   },
   {
     href: "/design-system",
+    handle: "demo-tee",
     name: "Тениска с щампа 14930",
     price: 16,
     compareAtPrice: 24,

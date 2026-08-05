@@ -119,6 +119,35 @@ export async function getProductByHandle(
   return products[0] ?? null;
 }
 
+/**
+ * Several products at once, for the favourites page.
+ *
+ * Medusa takes `handle` repeated, so this is one request rather than one per
+ * favourite. Anything since deleted simply does not come back — a list that
+ * quietly loses a discontinued product is right, and the alternative is a card
+ * linking to a 404.
+ */
+export async function listProductsByHandles(
+  handles: string[],
+  regionId: string,
+): Promise<StoreProduct[]> {
+  if (handles.length === 0) return [];
+
+  const { products } = await medusaFetch<{ products: StoreProduct[] }>("/store/products", {
+    handle: handles,
+    region_id: regionId,
+    limit: handles.length,
+    fields: PRODUCT_FIELDS,
+  });
+
+  /* Medusa answers in its own order; the list reads newest-first, which is the
+     order the shopper added them in. */
+  const byHandle = new Map(products.map((product) => [product.handle, product]));
+  return handles
+    .map((handle) => byHandle.get(handle))
+    .filter((product): product is StoreProduct => product !== undefined);
+}
+
 export async function listCategories(): Promise<StoreCategory[]> {
   const { product_categories } = await medusaFetch<{
     product_categories: StoreCategory[];
@@ -371,6 +400,7 @@ export function toCardProps(product: StoreProduct) {
 
   return {
     href: productHref(product),
+    handle: product.handle,
     name: cardTitle(product),
     images,
     price: displayPrice(product) ?? 0,

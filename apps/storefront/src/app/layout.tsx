@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, Oswald } from "next/font/google";
+import { WishlistProvider } from "@/components/wishlist/wishlist-provider";
 import "./globals.css";
 
 /* Oswald stands in for DIN Pro, Inter for Gotham HCo.
@@ -34,7 +35,11 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="bg" className={`${oswald.variable} ${inter.variable}`}>
-      <body>{children}</body>
+      {/* Above the shop layout so the header's count and the hearts on the
+          home page read the same list as the catalogue pages. */}
+      <body>
+        <WishlistProvider>{children}</WishlistProvider>
+      </body>
     </html>
   );
 }

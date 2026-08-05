@@ -7,6 +7,7 @@ import { NAV_GROUPS, type NavColumn } from "@/lib/navigation";
 import { cn } from "@/lib/cn";
 import { useFocusTrap } from "@/lib/use-focus-trap";
 import { Wordmark } from "@/components/layout/wordmark";
+import { useWishlist } from "@/components/wishlist/wishlist-provider";
 
 export interface SiteHeaderProps {
   /** True on pages whose first section is full-bleed imagery, so the bar sits
@@ -25,6 +26,8 @@ export function SiteHeader({ overlay = false }: SiteHeaderProps) {
   const sentinel = useRef<HTMLDivElement>(null);
   const [atTop, setAtTop] = useState(overlay);
   const [menuOpen, setMenuOpen] = useState(false);
+  const { handles, ready } = useWishlist();
+  const wishlistCount = ready ? handles.length : 0;
 
   /* IntersectionObserver on a sentinel at the top of the document rather than
      a scroll listener: the listener would fire on every frame and re-render
@@ -119,10 +122,23 @@ export function SiteHeader({ overlay = false }: SiteHeaderProps) {
             </button>
             <Link
               href="/wishlist"
-              aria-label="Любими"
-              className="grid size-11 place-items-center text-[20px] md:size-12 md:text-[24px]"
+              aria-label={
+                wishlistCount > 0 ? `Любими, ${wishlistCount} артикула` : "Любими"
+              }
+              className="relative grid size-11 place-items-center text-[20px] md:size-12 md:text-[24px]"
             >
               <Heart aria-hidden />
+              {/* Only once the list has been read, so the server's HTML and the
+                  first client render agree. A badge that appears a beat later
+                  is better than one that flickers off. */}
+              {wishlistCount > 0 && (
+                <span
+                  aria-hidden
+                  className="absolute top-1.5 right-1.5 grid min-w-4 place-items-center bg-primary px-1 font-body text-[0.625rem] leading-4 font-semibold text-background md:top-2 md:right-2"
+                >
+                  {wishlistCount}
+                </span>
+              )}
             </Link>
             <Link
               href="/cart"

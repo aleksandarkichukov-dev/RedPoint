@@ -1,25 +1,26 @@
 "use client";
 
 import { Heart } from "@phosphor-icons/react";
-import { useState } from "react";
+import { useWishlist } from "@/components/wishlist/wishlist-provider";
 import { cn } from "@/lib/cn";
 
 export interface WishlistButtonProps {
+  /** The product's handle — what the favourites list stores it under. */
+  handle: string;
   productName: string;
-  defaultPressed?: boolean;
   className?: string;
 }
 
 /**
  * Plain outline glyph with no background chrome, per the product-card spec.
- * Local state only for now; it gets wired to the customer account in Phase 5.
+ *
+ * The filled state comes from the shared list, not from local state, so the
+ * heart on a card, the one on the product page and the count in the header all
+ * say the same thing, and all of them survive a reload.
  */
-export function WishlistButton({
-  productName,
-  defaultPressed = false,
-  className,
-}: WishlistButtonProps) {
-  const [pressed, setPressed] = useState(defaultPressed);
+export function WishlistButton({ handle, productName, className }: WishlistButtonProps) {
+  const { has, ready, toggle } = useWishlist();
+  const pressed = ready && has(handle);
 
   return (
     <button
@@ -33,7 +34,7 @@ export function WishlistButton({
       onClick={(event) => {
         // The card is a link; the heart must not navigate.
         event.preventDefault();
-        setPressed((current) => !current);
+        toggle(handle);
       }}
       className={cn(
         "grid size-11 place-items-center text-primary",
