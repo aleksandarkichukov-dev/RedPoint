@@ -67,24 +67,41 @@ export function ProductCard({
           {/* Flat neutral block behind the photography is the only background
               treatment this system has. Ratio matches the source images. */}
           <div className="relative aspect-[502/616] overflow-hidden bg-neutral">
-            <Image
-              src={primary.src}
-              alt={primary.alt ?? ""}
-              fill
-              sizes="(min-width: 1024px) 25vw, 50vw"
-              priority={priority}
-              /* 180ms, not 320. A hover is the moment the user is watching for
-                 a response, and a third of a second reads as lag.
+            {/* A product with no photography still renders. It reads as an
+                empty neutral block, which is what the background already is,
+                so a half-finished catalogue looks unfinished rather than
+                broken.
 
-                 No touch guard needed: Tailwind v4 already compiles every
-                 hover and group-hover variant inside @media (hover: hover), so
-                 a tap on a phone cannot flash the second image. */
-              className={cn(
-                "object-cover transition-opacity duration-(--duration-fast)",
-                secondary && "group-hover:opacity-0",
-              )}
-            />
-            {secondary && (
+                This is not defensive tidying. Reaching into `images[0]`
+                unguarded threw on the first product imported from a
+                spreadsheet before its photographs arrived, and because the
+                card is a Server Component the throw took down the whole
+                category page — six products that were perfectly fine became
+                an error screen. */}
+            {primary ? (
+              <Image
+                src={primary.src}
+                alt={primary.alt ?? ""}
+                fill
+                sizes="(min-width: 1024px) 25vw, 50vw"
+                priority={priority}
+                /* 180ms, not 320. A hover is the moment the user is watching for
+                   a response, and a third of a second reads as lag.
+
+                   No touch guard needed: Tailwind v4 already compiles every
+                   hover and group-hover variant inside @media (hover: hover), so
+                   a tap on a phone cannot flash the second image. */
+                className={cn(
+                  "object-cover transition-opacity duration-(--duration-fast)",
+                  secondary && "group-hover:opacity-0",
+                )}
+              />
+            ) : (
+              <span className="absolute inset-0 flex items-center justify-center font-body text-body text-muted-text">
+                няма снимка
+              </span>
+            )}
+            {primary && secondary && (
               <Image
                 src={secondary.src}
                 alt=""

@@ -62,16 +62,19 @@ export default async function checkBulkImport({ container }: ExecArgs) {
 
   // --- the pieces the import needs from the store ---------------------------
   const { data: categories } = await query.graph({ entity: "product_category", fields: ["id", "handle"] });
-  const { data: channels } = await query.graph({ entity: "sales_channel", fields: ["id"] });
   const { data: profiles } = await query.graph({ entity: "shipping_profile", fields: ["id"] });
   const { data: locations } = await query.graph({ entity: "stock_location", fields: ["id"] });
+  /* The store's channel, matching the route. Taking the first sales channel
+     instead is what made imported products invisible in the shop, and a check
+     that does not import the way the real path does would not have caught it. */
+  const { data: stores } = await query.graph({ entity: "store", fields: ["default_sales_channel_id"] });
 
   const categoryIds = Object.fromEntries(
     categories.map((category: { handle: string; id: string }) => [category.handle, category.id]),
   );
   const context = {
     categoryIds,
-    salesChannelId: channels[0]!.id,
+    salesChannelId: stores[0]!.default_sales_channel_id as string,
     shippingProfileId: profiles[0]!.id,
     currencyCode: "eur",
     stockLocationId: locations[0]!.id,

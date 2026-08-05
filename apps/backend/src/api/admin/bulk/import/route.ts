@@ -50,10 +50,18 @@ export async function POST(req: MedusaRequest, res: MedusaResponse): Promise<voi
     query.graph({ entity: "sales_channel", fields: ["id"] }),
     query.graph({ entity: "shipping_profile", fields: ["id"] }),
     query.graph({ entity: "stock_location", fields: ["id"] }),
-    query.graph({ entity: "store", fields: ["default_currency_code"] }),
+    query.graph({ entity: "store", fields: ["default_currency_code", "default_sales_channel_id"] }),
   ]);
 
-  const salesChannelId = channels.data[0]?.id;
+  /* The store's own channel, never simply the first one in the list.
+     A fresh Medusa install carries a "Default Sales Channel" alongside the
+     seeded one, and the storefront's publishable key is bound to the seeded
+     one. Picking [0] put imported products in the channel nobody reads: they
+     appeared in the admin, complete and published, and were invisible in the
+     shop — the hardest kind of failure to diagnose, because nothing errors. */
+  const salesChannelId =
+    (store.data[0]?.default_sales_channel_id as string | undefined) ??
+    (channels.data.length === 1 ? channels.data[0]?.id : undefined);
   const shippingProfileId = profiles.data[0]?.id;
   const stockLocationId = locations.data[0]?.id;
 

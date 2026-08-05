@@ -79,6 +79,21 @@ export function ProductDetail({
           sticky details rather than the other way round: the photographs are
           what a shopper came to look at. */}
       <div className="flex flex-col gap-2">
+        {/* An article whose photographs have not been uploaded yet keeps the
+            gallery column at its full width. Rendering nothing does not throw,
+            but it collapses the two-column grid and the page reflows around a
+            missing half — which looks like a layout bug rather than like a
+            product waiting for pictures. */}
+        {color.images.length === 0 && (
+          <div className="relative flex aspect-[502/616] items-center justify-center bg-neutral">
+            <span className="font-body text-body text-muted-text">няма снимка</span>
+            {discount !== null && (
+              <Badge variant="sale" className="absolute top-0 left-0">
+                {discount}%
+              </Badge>
+            )}
+          </div>
+        )}
         {color.images.map((src, index) => (
           <div key={src} className="relative aspect-[502/616] overflow-hidden bg-neutral">
             <Image
