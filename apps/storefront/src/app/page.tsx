@@ -11,9 +11,15 @@ import {
   getCategoryByHandle,
   getRegionId,
   listProducts,
+  resolveCategoryTiles,
   type StoreProduct,
 } from "@/lib/catalog";
-import { CATEGORY_TILES, MANIFESTO, STORES } from "@/lib/home";
+import {
+  FEATURED_CATEGORIES,
+  MANIFESTO,
+  STORES,
+  type CategoryTile,
+} from "@/lib/home";
 
 /**
  * Home page, all nine sections of the Phase 3 brief.
@@ -25,10 +31,12 @@ import { CATEGORY_TILES, MANIFESTO, STORES } from "@/lib/home";
 async function loadProducts(): Promise<{
   newArrivals: StoreProduct[];
   onSale: StoreProduct[];
+  categoryTiles: CategoryTile[];
 }> {
   try {
     const regionId = await getRegionId();
     const saleCategory = await getCategoryByHandle("men-sale");
+    const categoryTiles = await resolveCategoryTiles(FEATURED_CATEGORIES, regionId);
 
     const [newest, sale] = await Promise.all([
       /* Ordered by article number, not created_at. Every product was created
@@ -46,14 +54,14 @@ async function loadProducts(): Promise<{
         : Promise.resolve({ products: [], count: 0, offset: 0, limit: 0 }),
     ]);
 
-    return { newArrivals: newest.products, onSale: sale.products };
+    return { newArrivals: newest.products, onSale: sale.products, categoryTiles };
   } catch {
-    return { newArrivals: [], onSale: [] };
+    return { newArrivals: [], onSale: [], categoryTiles: [] };
   }
 }
 
 export default async function HomePage() {
-  const { newArrivals, onSale } = await loadProducts();
+  const { newArrivals, onSale, categoryTiles } = await loadProducts();
 
   return (
     <>
@@ -67,7 +75,7 @@ export default async function HomePage() {
           cta={{ label: "разгледай колекцията", href: "/men" }}
         />
 
-        <CategoryCarousel title="Категории" tiles={CATEGORY_TILES} />
+        <CategoryCarousel title="Категории" tiles={categoryTiles} />
 
         <Manifesto items={MANIFESTO} />
 

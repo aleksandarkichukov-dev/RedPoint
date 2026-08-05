@@ -51,55 +51,34 @@ export const STORES: Store[] = [
   },
 ];
 
+/**
+ * Which categories the front page features, and in what order.
+ *
+ * Merchandising, not catalogue: the client decides what leads the page. The
+ * tile's photograph is NOT listed here, because a stock picture of a beach on
+ * the jackets tile is worse than no tile at all. Each one shows a real garment
+ * from the category it links to, resolved at render time from the catalogue.
+ */
+export interface FeaturedCategory {
+  label: string;
+  /** Medusa category handle; the listing route resolves it directly. */
+  handle: string;
+}
+
+export const FEATURED_CATEGORIES: FeaturedCategory[] = [
+  { label: "Якета", handle: "men-jackets" },
+  { label: "Дънки", handle: "men-jeans" },
+  { label: "Ризи", handle: "men-shirts" },
+  { label: "Тениски", handle: "men-tshirts" },
+  { label: "Панталони", handle: "men-trousers" },
+  { label: "Суичъри", handle: "men-sweatshirts" },
+  { label: "Аксесоари", handle: "men-belts" },
+];
+
+/** What the carousel actually renders, once the photograph is resolved. */
 export interface CategoryTile {
   label: string;
   href: string;
   image: string;
   alt: string;
 }
-
-/** Hrefs are Medusa category handles, which is what the listing route resolves. */
-export const CATEGORY_TILES: CategoryTile[] = [
-  {
-    label: "Якета",
-    href: "/men-jackets",
-    image: "https://picsum.photos/seed/redpoint-cat-jackets/800/1200",
-    alt: "Мъж с яке",
-  },
-  {
-    label: "Дънки",
-    href: "/men-jeans",
-    image: "https://picsum.photos/seed/redpoint-cat-jeans/800/1200",
-    alt: "Мъжки дънки",
-  },
-  {
-    label: "Ризи",
-    href: "/men-shirts",
-    image: "https://picsum.photos/seed/redpoint-cat-shirts/800/1200",
-    alt: "Мъжка риза",
-  },
-  {
-    label: "Тениски",
-    href: "/men-tshirts",
-    image: "https://picsum.photos/seed/redpoint-cat-tshirts/800/1200",
-    alt: "Мъжка тениска",
-  },
-  {
-    label: "Панталони",
-    href: "/men-bottoms",
-    image: "https://picsum.photos/seed/redpoint-cat-trousers/800/1200",
-    alt: "Мъжки панталон",
-  },
-  {
-    label: "Обувки",
-    href: "/men-shoes",
-    image: "https://picsum.photos/seed/redpoint-cat-shoes/800/1200",
-    alt: "Мъжки обувки",
-  },
-  {
-    label: "Аксесоари",
-    href: "/men-accessories",
-    image: "https://picsum.photos/seed/redpoint-cat-accessories/800/1200",
-    alt: "Колан и портмоне",
-  },
-];

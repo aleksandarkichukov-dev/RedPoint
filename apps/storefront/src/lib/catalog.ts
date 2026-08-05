@@ -209,6 +209,51 @@ export function productHref(product: StoreProduct): string {
 }
 
 /**
+ * One representative photograph per category, taken from a product that is
+ * actually in it.
+ *
+ * The tile still links to the whole category. Only the picture comes from a
+ * garment, which is the point: a shopper should be able to tell what a category
+ * contains by looking at it.
+ *
+ * A category with no products yields no tile rather than an empty grey box, so
+ * the row never advertises somewhere there is nothing to buy.
+ */
+export async function resolveCategoryTiles(
+  categories: { label: string; handle: string }[],
+  regionId: string,
+): Promise<{ label: string; href: string; image: string; alt: string }[]> {
+  const resolved = await Promise.all(
+    categories.map(async (category) => {
+      const found = await getCategoryByHandle(category.handle);
+      if (!found) return null;
+
+      const { products } = await listProducts({
+        regionId,
+        categoryId: found.id,
+        limit: 1,
+      });
+      const product = products[0];
+      if (!product) return null;
+
+      // The first colour's first shot, the same image the product card leads
+      // with, so the tile and the listing agree on what the garment looks like.
+      const image = toColorOptions(product)[0]?.images[0] ?? product.images[0]?.url;
+      if (!image) return null;
+
+      return {
+        label: category.label,
+        href: `/${found.handle}`,
+        image,
+        alt: `${category.label}: ${product.title}`,
+      };
+    }),
+  );
+
+  return resolved.filter((tile): tile is NonNullable<typeof tile> => tile !== null);
+}
+
+/**
  * StoreProduct to the shape a product card takes.
  *
  * The two card images are the first two of the FIRST colour, not the first two

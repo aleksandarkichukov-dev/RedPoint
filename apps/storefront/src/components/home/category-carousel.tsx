@@ -49,6 +49,10 @@ export function CategoryCarousel({ title, tiles }: CategoryCarouselProps) {
     };
   }, [syncEdges]);
 
+  // No catalogue, no row. An empty carousel with a heading over it is worse
+  // than the section not being there.
+  if (tiles.length === 0) return null;
+
   const scrollByTile = (direction: 1 | -1) => {
     const node = rail.current;
     if (!node) return;
@@ -132,7 +136,10 @@ export function CategoryCarousel({ title, tiles }: CategoryCarouselProps) {
             className="w-[68vw] shrink-0 snap-start sm:w-[38vw] lg:w-[22vw] xl:w-[18rem]"
           >
             <Link href={tile.href} className="group/tile block" draggable={false}>
-              <div className="relative aspect-[2/3] overflow-hidden bg-neutral">
+              {/* Same ratio as the product photography, not a taller editorial
+                  crop. The tiles now show real garments, and 2:3 cut the sides
+                  off them: a jacket lost its sleeves to the frame. */}
+              <div className="relative aspect-[502/616] overflow-hidden bg-neutral">
                 <Image
                   src={tile.image}
                   alt={tile.alt}
