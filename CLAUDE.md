@@ -72,11 +72,16 @@ The four rules that break the brand fastest:
 2. **Zero shadows.** Depth comes from flat colour blocks, never blur.
 3. **`#C2311E` only on sale and discount signage.** Not on errors, not on links, not decoratively. Form errors are monochrome by design.
 
-   Two standing exceptions, both in `components/layout/wordmark.tsx` and nowhere
-   else: the logo's ring is red, and it is round. It is the client's actual mark,
-   the ring is an SVG circle rather than `rounded-full` so the ban still greps
-   clean, and with the sale category gone the accent now carries exactly one
-   meaning again.
+   Three standing exceptions, and no more without the client saying so.
+
+   The logo, in `components/layout/wordmark.tsx`: its ring is red and it is
+   round. It is the client's actual mark, and the ring is an SVG circle rather
+   than `rounded-full` so the ban still greps clean.
+
+   The nav drawer's hover colour, added at the client's explicit request on
+   7 August 2026 after being told what it costs: red now means both "this is
+   discounted" and "your pointer is here". If sale signage ever stops standing
+   out, this is the first place to look.
 4. **Headlines uppercase condensed, buttons lowercase.** Deliberate rhythm.
 
 Working reference for every primitive: `/design-system` in the storefront.

@@ -248,7 +248,7 @@ function AccordionRow({
         aria-expanded={open}
         aria-controls={panelId}
         onClick={onToggle}
-        className="flex w-full items-center justify-between gap-4 px-4 py-5 text-left"
+        className="group/row flex w-full items-center justify-between gap-4 px-4 py-5 text-left transition-colors duration-(--duration-fast) hover:text-accent"
       >
         <span className="font-headline text-subhead tracking-[0.08em] uppercase">
           {category.label}
@@ -274,7 +274,7 @@ function AccordionRow({
                 href={link.href}
                 onClick={onNavigate}
                 tabIndex={open ? undefined : -1}
-                className="group/link block py-2.5 pr-4 pl-8 font-body text-nav"
+                className="group/link block py-2.5 pr-4 pl-8 font-body text-nav transition-colors duration-(--duration-fast) hover:text-accent"
               >
                 {/* The word itself is the hover state — it steps up in size and
                     weight under the pointer, instead of a marker appearing
@@ -299,7 +299,7 @@ function AccordionRow({
               href={category.href}
               onClick={onNavigate}
               tabIndex={open ? undefined : -1}
-              className="mb-3 block py-2.5 pr-4 pl-8 font-body text-control lowercase underline underline-offset-4"
+              className="mb-3 block py-2.5 pr-4 pl-8 font-body text-control lowercase underline underline-offset-4 transition-colors duration-(--duration-fast) hover:text-accent"
             >
               виж всички
             </Link>
