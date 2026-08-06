@@ -79,6 +79,31 @@ function toChatProduct(product: StoreProduct): ChatProduct {
   };
 }
 
+/**
+ * What a product can be found by: its name, its colours, its category.
+ *
+ * Not the description. That was ranked once and put a sweatshirt at the top of
+ * a search for black t-shirts, because these descriptions say what to wear a
+ * garment WITH — half of them mention дънки or тениска while being neither.
+ *
+ * The colours matter because they are not in the title. `бежав панталон`
+ * returned nothing while a beige pair sat on the page behind the panel: the
+ * title is `Мъжки карго панталон` and the colour lives on the variants. The
+ * category carries the plural nobody's title uses — `якета` is a category,
+ * while every jacket is called `яке`.
+ *
+ * All three are attributes of the thing itself, which is the line between this
+ * and the description: prose about a garment can name anything at all.
+ */
+function searchText(product: StoreProduct): string {
+  const colors = toColorOptions(product)
+    .map((color) => color.name)
+    .join(" ");
+  const categories = (product.categories ?? []).map((category) => category.name).join(" ");
+
+  return `${product.title} ${colors} ${categories}`;
+}
+
 function articleOf(product: StoreProduct): string | null {
   return product.metadata?.article_no ?? null;
 }
@@ -131,14 +156,7 @@ export async function ask(message: string): Promise<ChatAnswer> {
 
     case "search": {
       const products = await catalogue();
-      /* Titles only, and this was learned the hard way. Ranking over the
-         description too put a sweatshirt at the top of a search for black
-         t-shirts, because these descriptions suggest what to wear a garment
-         with — half of them mention дънки or тениска while being neither. A
-         title names what the thing IS. */
-      const hits = rank(intent.query ?? message, products, (product) => product.title, {
-        limit: 3,
-      });
+      const hits = rank(intent.query ?? message, products, searchText, { limit: 3 });
 
       if (hits.length === 0) {
         return {
