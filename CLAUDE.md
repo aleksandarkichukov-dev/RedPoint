@@ -174,6 +174,29 @@ Three gaps found late, all ordinary shop behaviour rather than edge cases:
 - An abandoned payment leaves an unpaid order forever. Visible in the admin,
   which is better than losing it, but nothing chases or clears it.
 
+## Going live starts from an empty database
+
+The client's decision: the VPS gets a fresh database and the seed, rather than a
+copy of this one. Order numbers then start at 1 instead of continuing past the
+test orders, and the first real customer is number 1.
+
+Three things that does NOT carry over, all of which have to be redone or
+re-entered on the server:
+
+- **The publishable key changes.** The seed prints a new one; the storefront's
+  `.env` has to be updated with it or every catalogue read 401s.
+- **The FAQ is lost.** It lives in `store.metadata`, which the seed does not
+  write. Whatever the client typed into the Чести въпроси screen has to be
+  typed again.
+- **Anything uploaded through the bulk module is lost.** The seed reads
+  `seed/products.json`, so the scraped catalogue comes back — but a product the
+  client added through the daily upload screen exists only in the database. If
+  they start loading stock before go-live, export it first, or that work is
+  gone.
+
+The last one is the trap. It looks like a routine redeploy and costs a week of
+somebody's data entry.
+
 ## Blocked on the client
 
 Phases 5 and 6 need credentials and decisions that live outside this repo.
