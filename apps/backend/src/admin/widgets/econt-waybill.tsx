@@ -35,18 +35,16 @@ const EcontWaybillWidget = ({ data: order }: DetailWidgetProps<AdminOrder>) => {
 
   const [waybill, setWaybill] = useState<Waybill | null>(existing);
   const [busy, setBusy] = useState(false);
+  /* Confirmation lives in the widget, not in `window.confirm`. The browser
+     suppressed the native dialog here — the first press did nothing at all,
+     with no request and no error, because a blocked confirm reads as "no".
+     An asking-state cannot be blocked and cannot be silent. */
+  const [asking, setAsking] = useState(false);
 
   const shipping = order.shipping_methods?.[0]?.name ?? "";
   const isEcont = /еконт/i.test(shipping);
 
   const issue = async () => {
-    const confirmed = window.confirm(
-      `Издаване на товарителница за поръчка № ${order.display_id}.\n\n` +
-        "Това създава истинска пратка в Еконт и куриер ще дойде да я вземе.\n\n" +
-        "Сигурни ли сте?",
-    );
-    if (!confirmed) return;
-
     setBusy(true);
     try {
       const response = await fetch(`/admin/orders/${order.id}/econt-waybill`, {
@@ -61,6 +59,7 @@ const EcontWaybillWidget = ({ data: order }: DetailWidgetProps<AdminOrder>) => {
       }
 
       setWaybill(result.waybill);
+      setAsking(false);
       toast.success(
         result.alreadyIssued
           ? `Тази поръчка вече има товарителница ${result.waybill.number}.`
@@ -121,9 +120,27 @@ const EcontWaybillWidget = ({ data: order }: DetailWidgetProps<AdminOrder>) => {
               Създава истинска пратка. Куриерът идва да я вземе, а сумата за
               наложен платеж се взима от клиента при получаване.
             </Text>
-            <Button variant="primary" onClick={issue} isLoading={busy} className="w-fit">
-              Издай товарителница
-            </Button>
+
+            {asking ? (
+              <div className="flex flex-col gap-3">
+                <Text size="small" weight="plus">
+                  Издаване на товарителница за поръчка № {order.display_id}. Куриер
+                  ще дойде да я вземе. Сигурни ли сте?
+                </Text>
+                <div className="flex gap-2">
+                  <Button variant="primary" onClick={issue} isLoading={busy}>
+                    Да, издай
+                  </Button>
+                  <Button variant="secondary" onClick={() => setAsking(false)} disabled={busy}>
+                    Откажи
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <Button variant="primary" onClick={() => setAsking(true)} className="w-fit">
+                Издай товарителница
+              </Button>
+            )}
           </>
         )}
       </div>
