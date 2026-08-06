@@ -2,6 +2,7 @@ import { ContainerRegistrationKeys } from "@medusajs/framework/utils";
 import type { ExecArgs } from "@medusajs/framework/types";
 import { call, EcontApiError, isSandbox } from "../modules/econt/client";
 import { listOffices, officesInCity } from "../modules/econt/offices";
+import { quote } from "../modules/econt/pricing";
 
 /**
  * Proves the Econt connection without creating anything.
@@ -62,6 +63,42 @@ export default async function checkEcont({ container }: ExecArgs) {
       error instanceof EcontApiError && error.message.includes("allowWrite"),
       (error as Error).message,
     );
+  }
+
+  /* Pricing. A quote goes through the same method that creates a waybill, so
+     these also prove the mode guard lets a read through while the check above
+     proves it stops a write. */
+  try {
+    const toOffice = await quote({ officeCode: sample!.code, codAmount: 40.55 });
+    check("an office quote comes back", toOffice.total > 0, String(toOffice.total));
+    check("it is priced in euro", toOffice.currency === "EUR", toOffice.currency);
+    check("the charges are itemised", toOffice.lines.length > 0, String(toOffice.lines.length));
+    logger.info(
+      `  до офис ${sample!.code}: ${toOffice.total.toFixed(2)} € — ` +
+        toOffice.lines.map((line) => `${line.description} ${line.amount.toFixed(2)}`).join(" + "),
+    );
+
+    const toDoor = await quote({
+      address: { cityId: 7, street: "ул. Дунав", num: "5" },
+      codAmount: 40.55,
+    });
+    check("an address quote comes back", toDoor.total > 0, String(toDoor.total));
+    check("delivering to the door costs more", toDoor.total >= toOffice.total,
+      `${toDoor.total} vs ${toOffice.total}`);
+    logger.info(`  до адрес: ${toDoor.total.toFixed(2)} €`);
+  } catch (error) {
+    check("pricing works", false, (error as Error).message);
+  }
+
+  /* Their errors nest: a rejected label answers `message: " "` at the top with
+     the reason three levels down. A blank message is worse than none — it reads
+     as a call that succeeded and returned nothing. */
+  try {
+    await quote({ officeCode: "не-съществува" });
+    check("a bad office is reported", false, "it went through");
+  } catch (error) {
+    const message = (error as Error).message;
+    check("a bad office is reported with a real message", message.trim().length > 30, message);
   }
 
   for (const office of varna.slice(0, 5)) {

@@ -34,6 +34,30 @@ const WRITE_METHODS = [
   "OrdersService.updateOrder",
 ];
 
+/**
+ * Digs the real message out of Econt's nested errors.
+ *
+ * They answer a rejected label with `message: " "` at the top and the actual
+ * reason three levels down, inside `innerErrors` inside `innerErrors`. Reading
+ * only the top level reports a blank string, which is worse than reporting
+ * nothing — it looks like the call succeeded and returned nothing.
+ *
+ * The deepest message is the specific one: "подател:" wraps a blank wrapper
+ * which wraps "Несъответствие между населено място и пощенски код."
+ */
+function deepestMessage(error: unknown): string | null {
+  if (typeof error !== "object" || error === null) return null;
+  const node = error as { message?: string; innerErrors?: unknown[] };
+
+  for (const inner of node.innerErrors ?? []) {
+    const deeper = deepestMessage(inner);
+    if (deeper) return deeper;
+  }
+
+  const own = node.message?.trim();
+  return own ? own : null;
+}
+
 export class EcontConfigError extends Error {
   constructor(message: string) {
     super(`Econt is not configured: ${message}`);
@@ -93,7 +117,13 @@ export async function call<T>(
   payload: Record<string, unknown> = {},
   options: { allowWrite?: boolean } = {},
 ): Promise<T> {
-  const isWrite = WRITE_METHODS.some((name) => method.startsWith(name));
+  /* `createLabel` both quotes and creates, told apart by one field in the body.
+     That is Econt's design, not ours, and it is the sharpest edge in this API:
+     the same call that prices a delivery registers a parcel if `mode` is
+     anything else. So the guard reads the mode rather than the method name —
+     a quote is a read however alarming the URL looks. */
+  const isQuote = payload.mode === "calculate";
+  const isWrite = !isQuote && WRITE_METHODS.some((name) => method.startsWith(name));
   if (isWrite && !options.allowWrite) {
     throw new EcontApiError(
       method,
@@ -125,11 +155,17 @@ export async function call<T>(
   }
 
   /* Econt answer 517 with a `message` for a rejected login rather than 401, and
-     they put `message` on ordinary failures too. Reading it before the status
-     is what turns "Невалидно потребителско име и/или парола" into something a
-     person can act on instead of a bare number. */
-  const message = (data as { message?: string }).message;
-  if (message) throw new EcontApiError(method, response.status, message);
+     they put `message` on ordinary failures too — sometimes blank at the top
+     with the reason buried in `innerErrors`. Reading it before the status is
+     what turns a bare number into "Невалидно потребителско име и/или парола". */
+  const failure = data as { message?: string; type?: string; innerErrors?: unknown[] };
+  if (failure.message !== undefined || failure.type) {
+    throw new EcontApiError(
+      method,
+      response.status,
+      deepestMessage(failure) ?? failure.type ?? "unknown error",
+    );
+  }
 
   if (!response.ok) {
     throw new EcontApiError(method, response.status, text.slice(0, 200));
