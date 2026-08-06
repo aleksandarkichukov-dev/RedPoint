@@ -34,7 +34,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const category = await getCategoryByHandle(handle);
   if (!category) return {};
   return {
-    title: `${category.name} · Red Point`,
+    title: category.name,
     description: `Мъжки ${category.name.toLowerCase()} от Red Point Варна.`,
   };
 }

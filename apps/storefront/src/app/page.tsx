@@ -1,4 +1,5 @@
 import { ChatPanel } from "@/components/chat/chat-panel";
+import { OrganizationJsonLd } from "@/components/seo/json-ld";
 import { CategoryCarousel } from "@/components/home/category-carousel";
 import { Hero } from "@/components/home/hero";
 import { Manifesto } from "@/components/home/manifesto";
@@ -61,6 +62,9 @@ export default async function HomePage() {
 
   return (
     <>
+      {/* The shop and its three counters, for the map panel on searches like
+          "мъжки дрехи Варна". */}
+      <OrganizationJsonLd />
       <SiteHeader overlay />
       {/* The home page sits outside the catalogue layout, so it has no
           template to animate it. The same wave, applied to its sections. */}

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Oswald } from "next/font/google";
 import { WishlistProvider } from "@/components/wishlist/wishlist-provider";
+import { SITE_URL } from "@/lib/site";
 import "./globals.css";
 
 /* Oswald stands in for DIN Pro, Inter for Gotham HCo.
@@ -26,8 +27,24 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Red Point",
-  description: "Мъжка спортно-елегантна мода. Три магазина във Варна.",
+  /* Every relative URL in metadata resolves against this — the images Facebook
+     and Viber fetch when a product is shared, and the canonical tags. Without
+     it Next emits paths, and a path is not something another server can
+     fetch: the preview arrives with no picture. */
+  metadataBase: new URL(SITE_URL),
+  /* The home title was just "Red Point", which nobody searches for. What
+     people type is the thing plus the place. */
+  title: {
+    default: "Red Point · Мъжка мода във Варна",
+    template: "%s · Red Point",
+  },
+  description:
+    "Мъжка спортно-елегантна мода — якета, дънки, ризи, тениски. Три магазина във Варна и доставка в цялата страна.",
+  openGraph: {
+    type: "website",
+    locale: "bg_BG",
+    siteName: "Red Point",
+  },
 };
 
 export default function RootLayout({

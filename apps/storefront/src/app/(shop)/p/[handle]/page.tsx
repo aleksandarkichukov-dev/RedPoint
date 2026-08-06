@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ProductDetail } from "@/components/pdp/product-detail";
 import { ProductCard } from "@/components/ui/product-card";
+import { ProductJsonLd } from "@/components/seo/json-ld";
 import {
   compareAtPrice,
   displayPrice,
@@ -21,7 +22,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const product = await getProductByHandle(decodeURIComponent(handle), regionId);
   if (!product) return {};
   return {
-    title: `${product.title} · Red Point`,
+    title: product.title,
     description: product.description?.slice(0, 160) ?? undefined,
     openGraph: { images: product.images[0] ? [product.images[0].url] : undefined },
   };
@@ -62,6 +63,22 @@ export default async function ProductPage({ params }: PageProps) {
           )}
         </ol>
       </nav>
+
+      {/* Read by search engines, invisible to everybody else. It is what puts
+          the price and "in stock" under the result rather than the first line
+          of the description. */}
+      <ProductJsonLd
+        name={product.title}
+        description={product.description}
+        images={product.images.map((image) => image.url)}
+        sku={product.metadata?.article_no ?? null}
+        price={displayPrice(product) ?? 0}
+        inStock={toColorOptions(product).some((color) =>
+          color.sizes.some((size) => size.inStock),
+        )}
+        href={`/p/${product.handle}`}
+        material={product.material}
+      />
 
       <ProductDetail
         handle={product.handle}
