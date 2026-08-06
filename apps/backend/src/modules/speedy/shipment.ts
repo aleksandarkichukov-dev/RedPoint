@@ -1,4 +1,5 @@
 import { call, getSpeedyCredentials } from "./client";
+import { findSites } from "./offices";
 
 /**
  * Pricing a Speedy delivery, and creating one.
@@ -149,6 +150,54 @@ export async function createShipment(request: SpeedyRequest): Promise<SpeedyShip
     total: data.price?.total ?? 0,
     currency: data.price?.currency ?? "EUR",
   };
+}
+
+/**
+ * Turns a typed address into the ids Speedy insist on.
+ *
+ * Econt take a street by name; Speedy want a settlement id and a street id, and
+ * a shopper types neither. So the town and the street are looked up from what
+ * they wrote.
+ *
+ * It refuses rather than guessing. A street that cannot be resolved is a parcel
+ * that would go to the wrong door or to none at all, and the shop can issue
+ * that one by hand knowing exactly why.
+ */
+export async function resolveAddress(
+  city: string,
+  street: string,
+): Promise<{ siteId: number; streetId: number; streetNo: string }> {
+  const sites = await findSites(city);
+  const wanted = city.trim().toLowerCase();
+
+  /* Case-folded, towns before villages: Speedy answer in capitals, and a name
+     that is both is far more often the town. */
+  const site =
+    sites.find((s) => s.name.toLowerCase() === wanted && s.type.startsWith("гр")) ??
+    sites.find((s) => s.name.toLowerCase() === wanted);
+
+  if (!site) throw new Error(`Спиди не разпознават населено място „${city}".`);
+
+  /* The house number is whatever trails the street name — "ул. Дунав 5" is one
+     field to a shopper and two to Speedy. */
+  const match = street.trim().match(/^(.*?)[\s,]+(\d+[a-zA-Zа-яА-Я]?)\s*$/);
+  const streetName = (match?.[1] ?? street).replace(/^(ул\.|бул\.|жк|ж\.к\.)\s*/i, "").trim();
+  const streetNo = match?.[2] ?? "";
+
+  const found = await call<{ streets?: { id: number; name: string }[] }>("/location/street", {
+    siteId: site.id,
+    name: streetName,
+  });
+
+  const first = found.streets?.[0];
+  if (!first) {
+    throw new Error(
+      `Спиди не разпознават улица „${streetName}" в ${site.name}. ` +
+        "Издайте товарителницата от панела на Спиди.",
+    );
+  }
+
+  return { siteId: site.id, streetId: first.id, streetNo: streetNo || "1" };
 }
 
 /**
