@@ -1,55 +1,85 @@
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils";
 import type { ExecArgs } from "@medusajs/framework/types";
-import { buildPurchase } from "../modules/mypos/purchase";
+import { getMyposConfig } from "../modules/mypos/config";
+import { sign, type MyposParams } from "../modules/mypos/signature";
 
 /**
- * Posts one signed purchase straight to myPOS and reads what they say.
+ * Asks myPOS one question at a time.
  *
- * Their checkout only ever explains itself in the rendered page, so this is the
- * fast way to find a rejected parameter — rather than walking a shopper through
- * checkout for every guess.
+ * Their checkout only ever explains itself in the rendered page, so this posts
+ * a signed purchase and reads the answer — minutes instead of an evening of
+ * walking a shopper through checkout for every guess.
  *
- * One variant per run, on purpose. The config caches after its first read, so
- * swapping environment variables inside a loop changes nothing and every
- * variant silently tests the first one. Different URLs mean a different
- * process:
+ * The fields are built here rather than by `buildPurchase`, because a variant
+ * has to change a value BEFORE it is signed. Editing the body afterwards only
+ * ever proves that a broken signature is rejected, which we already know: it
+ * comes back as error 2, while ours comes back as 5.
  *
- *   STOREFRONT_URL=https://red-point.bg medusa exec ./src/scripts/probe-mypos.ts
+ *   medusa exec ./src/scripts/probe-mypos.ts            всичко както е сега
+ *   medusa exec ./src/scripts/probe-mypos.ts ascii      без кирилица
+ *   medusa exec ./src/scripts/probe-mypos.ts minimal    без клиентски данни
+ *   medusa exec ./src/scripts/probe-mypos.ts nocart     без артикули
+ *   medusa exec ./src/scripts/probe-mypos.ts nodelivery без доставка
  *
  * Nothing is paid. A rejected form is a page; an accepted one is the card entry
  * screen, which stays untouched.
  */
 export default async function probeMypos({ container, args }: ExecArgs) {
   const logger = container.resolve(ContainerRegistrationKeys.LOGGER);
+  const variant = args?.[0] ? String(args[0]) : "as-is";
+  const config = getMyposConfig();
 
-  const purchase = buildPurchase({
-    orderId: args?.[0] ? String(args[0]) : "1042",
-    itemsTotal: 19,
-    deliveryTotal: 3.06,
-    currency: "EUR",
-    customer: {
-      email: "test@example.com",
-      firstName: "Тест",
-      lastName: "Тестов",
-      phone: "0888000000",
-      city: "Варна",
-      postalCode: "9000",
-      address: "ул. Тестова 1",
-    },
-    lines: [{ name: "Тениска", quantity: 1, unitPrice: 19 }],
-  });
+  const cyrillic = variant !== "ascii";
+  const site = process.env.STOREFRONT_URL || "http://localhost:3000";
 
-  logger.info(`към: ${purchase.url}`);
-  for (const [key, value] of Object.entries(purchase.fields)) {
-    logger.info(`  ${key} = ${key === "Signature" ? String(value).slice(0,20)+"…" : value}`);
+  const fields: MyposParams = {
+    IPCmethod: "IPCPurchase",
+    IPCVersion: variant === "v1.3" ? "1.3" : "1.4",
+    IPCLanguage: variant === "lang-en" ? "EN" : "BG",
+    SID: config.sid,
+    WalletNumber: variant === "wallet-wrong" ? "61938166610" : config.wallet,
+    KeyIndex: config.keyIndex,
+    Amount: variant === "amount-goods" ? "19.00" : "22.06",
+    Currency: "EUR",
+    OrderID: "1042",
+    URL_OK: `${site}/ok`,
+    URL_Cancel: `${site}/cancel`,
+    URL_Notify: `${process.env.MEDUSA_BACKEND_URL || "http://localhost:9000"}/hooks/mypos/notify`,
+  };
+
+  if (variant !== "minimal") {
+    fields.PaymentParametersRequired = "1";
+    fields.CustomerEmail = "test@example.com";
+    fields.CustomerFirstNames = cyrillic ? "Тест" : "Test";
+    fields.CustomerFamilyName = cyrillic ? "Тестов" : "Testov";
+    fields.CustomerPhone = "0888000000";
+    fields.CustomerCountry = "BGR";
+    fields.CustomerCity = cyrillic ? "Варна" : "Varna";
+    fields.CustomerZIPCode = "9000";
+    fields.CustomerAddress = cyrillic ? "ул. Тестова 1" : "ul. Testova 1";
+  } else {
+    fields.PaymentParametersRequired = "0";
   }
 
-  const body = new URLSearchParams();
-  for (const [key, value] of Object.entries(purchase.fields)) body.append(key, String(value));
+  if (variant !== "nocart") {
+    fields.CartItems = "1";
+    fields.Article_1 = cyrillic ? "Тениска" : "Teniska";
+    fields.Quantity_1 = "1";
+    fields.Price_1 = "19.00";
+    fields.Amount_1 = "19.00";
+    fields.Currency_1 = "EUR";
+  }
 
-  const response = await fetch(purchase.url, {
+  if (variant !== "nodelivery") fields.Delivery = "3.06";
+
+  fields.Signature = sign(fields, config.privateKey);
+
+  const body = new URLSearchParams();
+  for (const [key, value] of Object.entries(fields)) body.append(key, String(value));
+
+  const response = await fetch(config.checkoutUrl, {
     method: "POST",
-    headers: { "content-type": "application/x-www-form-urlencoded" },
+    headers: { "content-type": "application/x-www-form-urlencoded; charset=utf-8" },
     body,
   });
 
@@ -59,11 +89,34 @@ export default async function probeMypos({ container, args }: ExecArgs) {
     html.match(/Код на грешката:\s*([^<|\n]+)/i)?.[1];
   const requestId = html.match(/Request ID:\s*(\d+)/i)?.[1];
 
+  /* The page itself, stripped of markup, when a variant needs reading rather
+     than classifying. `PROBE_DUMP=1` in front of the command. */
+  if (process.env.PROBE_DUMP) {
+    const text = html
+      .replace(/<script[\s\S]*?<\/script>/gi, " ")
+      .replace(/<style[\s\S]*?<\/style>/gi, " ")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    logger.info(`ОТГОВОР: ${text.slice(0, 600)}`);
+  }
+
+  /* Classified by what the page IS, not by a word in it. The first version
+     looked for "карт" and found it in the title — "Сигурни плащания с дебитна
+     или кредитна карта" is on the error page too — and cheerfully reported a
+     rejection as an acceptance. A card form has an input for the number; an
+     error page has an apology. */
+  const cardForm = /<input[^>]+name=["']?(PAN|CardNumber|cardnumber)/i.test(html);
+  const interrupted = /прекъснат|не могат да бъдат обработени|cannot be processed/i.test(html);
+
   logger.info(
-    error
-      ? `→ ГРЕШКА ${error.trim()}${requestId ? ` · Request ID ${requestId}` : ""}`
-      : /card|карт|CVC|PAN/i.test(html)
-        ? "→ ПРИЕТО — това е страницата за въвеждане на карта"
-        : `→ неясен отговор, HTTP ${response.status}`,
+    `${variant.padEnd(11)} → ` +
+      (error
+        ? `ГРЕШКА ${error.trim()}${requestId ? ` · ${requestId}` : ""}`
+        : cardForm
+          ? "ПРИЕТО — форма за карта"
+          : interrupted
+            ? "ОТКАЗ — процесът беше прекъснат, без код"
+            : `неясно, HTTP ${response.status}, ${html.length} знака`),
   );
 }
