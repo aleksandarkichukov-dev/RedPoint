@@ -74,6 +74,15 @@ export default async function probeMypos({ container, args }: ExecArgs) {
 
   fields.Signature = sign(fields, config.privateKey);
 
+  /* Printed every run. A probe that does not say what it sent cannot tell an
+     unchanged result from an unchanged request — an environment override that
+     silently failed to apply looks exactly like a value that made no
+     difference. */
+  logger.info(
+    `   SID ${fields.SID} · Wallet ${fields.WalletNumber} · KeyIndex ${fields.KeyIndex} · ` +
+      `IPCVersion ${fields.IPCVersion} · ${fields.Currency} ${fields.Amount}`,
+  );
+
   const body = new URLSearchParams();
   for (const [key, value] of Object.entries(fields)) body.append(key, String(value));
 
