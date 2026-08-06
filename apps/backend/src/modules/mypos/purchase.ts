@@ -81,7 +81,12 @@ export function buildPurchase(request: PurchaseRequest): SignedPurchase {
     Currency: request.currency.toUpperCase(),
     OrderID: request.orderId,
     URL_OK: `${config.storefrontUrl}/order/confirm/${request.orderId}`,
-    URL_Cancel: `${config.storefrontUrl}/checkout?payment=cancelled`,
+    /* The order, not the checkout. By the time myPOS have the shopper the
+       order already exists and the cart is spent, so /checkout would redirect
+       them to an empty basket — the shop losing their order in front of them.
+       The pay page is worse still: it auto-submits, so cancelling would send
+       them straight back to myPOS in a loop. */
+    URL_Cancel: `${config.storefrontUrl}/order/${request.orderId}?payment=cancelled`,
     // /hooks, not /store: Medusa's store routes demand a publishable API key
     // that myPOS cannot send. See the route file.
     URL_Notify: `${config.backendUrl}/hooks/mypos/notify`,
