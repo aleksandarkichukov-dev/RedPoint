@@ -1,6 +1,7 @@
 "use server";
 
 import { detectIntent, rank } from "@redpoint/catalog";
+import { medusaFetch } from "@/lib/medusa";
 import {
   getRegionId,
   listProducts,
@@ -48,6 +49,54 @@ const OPENING = [
   "как връщам дреха",
   "къде са магазините",
 ];
+
+/**
+ * The buttons offered under an answer.
+ *
+ * The shop's own questions when it has written any, ours otherwise. Three,
+ * because a row of buttons stops being a shortcut somewhere around four and
+ * starts being a menu to read.
+ */
+function openers(entries: { question: string }[]): string[] {
+  return entries.length > 0 ? entries.slice(0, 3).map((entry) => entry.question) : OPENING;
+}
+
+interface FaqEntry {
+  id: string;
+  question: string;
+  answer: string;
+  keywords: string[];
+}
+
+/** What the shop has written for itself, from the admin screen. */
+async function faq(): Promise<FaqEntry[]> {
+  try {
+    const { faq: entries } = await medusaFetch<{ faq: FaqEntry[] }>("/store/faq");
+    return entries;
+  } catch {
+    /* An unreachable FAQ must not take the bot down with it. Everything else it
+       answers comes from the catalogue and from fixed strings, and those still
+       work. */
+    return [];
+  }
+}
+
+/**
+ * The shop's own answer to this question, if it has written one.
+ *
+ * Matched over the question and its keywords together, so the client can add
+ * `малко ми е` to a question phrased `мога ли да заменя размер` and have both
+ * reach the same answer. Held to the same threshold as the catalogue search —
+ * a half-matched FAQ entry is a confidently wrong answer, which is worse here
+ * than in a product list because there is no photograph to disagree with it.
+ */
+function matchFaq(entries: FaqEntry[], query: string): FaqEntry | null {
+  const hit = rank(query, entries, (entry) => `${entry.question} ${entry.keywords.join(" ")}`, {
+    limit: 1,
+  })[0];
+
+  return hit?.item ?? null;
+}
 
 /** Every product, once, cached like the rest of the catalogue. */
 async function catalogue(): Promise<StoreProduct[]> {
@@ -110,12 +159,24 @@ function articleOf(product: StoreProduct): string | null {
 
 export async function ask(message: string): Promise<ChatAnswer> {
   const intent = detectIntent(message);
+  const entries = await faq();
+
+  /* The shop's own answers win over the built-in ones, and are asked before
+     anything except an article number. That is what makes this screen worth
+     having: the client can correct what the bot says about delivery without
+     anybody touching the code, and their wording beats ours by default.
+     An article number still comes first — a label in someone's hand is not a
+     question anybody writes an FAQ entry for. */
+  if (intent.kind !== "article" && intent.kind !== "stock") {
+    const written = matchFaq(entries, message);
+    if (written) return { text: written.answer, suggestions: openers(entries) };
+  }
 
   switch (intent.kind) {
     case "greeting":
       return {
         text: "Здравейте. Мога да проверя дреха по артикулен номер или по име, да кажа какви размери има в момента, и да отговоря за доставка, връщане и магазините.",
-        suggestions: OPENING,
+        suggestions: openers(entries),
       };
 
     case "article":
@@ -126,7 +187,7 @@ export async function ask(message: string): Promise<ChatAnswer> {
       if (!found) {
         return {
           text: `Не намирам артикул ${intent.article}. Проверете номера от етикета — възможно е и дрехата вече да не се предлага.`,
-          suggestions: OPENING,
+          suggestions: openers(entries),
         };
       }
 
@@ -162,7 +223,7 @@ export async function ask(message: string): Promise<ChatAnswer> {
         return {
           text: "Не намирам такова нещо. Опитайте с друга дума или с артикулния номер от етикета.",
           links: [{ label: "виж цялата колекция", href: "/men" }],
-          suggestions: OPENING,
+          suggestions: openers(entries),
         };
       }
 
@@ -236,7 +297,7 @@ export async function ask(message: string): Promise<ChatAnswer> {
     default:
       return {
         text: "Не разбрах въпроса. Мога да проверя дреха по артикулен номер или по име, и да отговоря за доставка, връщане, плащане и магазините.",
-        suggestions: OPENING,
+        suggestions: openers(entries),
       };
   }
 }
