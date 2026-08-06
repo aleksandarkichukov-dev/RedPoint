@@ -85,6 +85,16 @@ export async function createWaybill(request: WaybillRequest): Promise<Waybill> {
         packCount: 1,
         shipmentType: "PACK",
         weight: request.weightKg ?? 1,
+        /* Which days the parcel may be delivered on. Econt default it for a
+           parcel that stays in the sender's own city and demand it for every
+           other, so this was invisible until a waybill was addressed outside
+           Varna — and their message, "Моля, изберете ден за доставка", names
+           no field. Found by trying candidates until one stopped failing.
+
+           `workday` rather than a weekend: a courier calling on a Saturday
+           reaches an address nobody is at, and the shop does not pack on
+           Sundays. */
+        holidayDeliveryDay: "workday",
         shipmentDescription: request.reference
           ? `дрехи, поръчка ${request.reference}`
           : "дрехи",
