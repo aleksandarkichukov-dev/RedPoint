@@ -3,6 +3,13 @@ import { call } from "./client";
 /**
  * What Econt would charge for one delivery.
  *
+ * NOT what the shopper pays. The shop charges a flat 2.55 € to an office and
+ * 3.06 € to an address, by the client's decision, and absorbs the difference —
+ * on the tariff measured in August 2026 that is about 4 € an order. This module
+ * exists to quote, to sanity-check an invoice and to price a waybill, never to
+ * set a price in checkout. Wiring it there would change a business decision,
+ * not fix a bug.
+ *
  * Priced through `createLabel` with `mode: "calculate"` — the same call that
  * creates a waybill. That is Econt's design and it is worth naming: the only
  * thing between a quote and a registered parcel is one string. The client
