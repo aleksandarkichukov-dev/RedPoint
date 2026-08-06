@@ -1,6 +1,6 @@
 "use client";
 
-import { Heart, List, MagnifyingGlass, Minus, Plus, ShoppingBag, X } from "@phosphor-icons/react";
+import { Heart, List, Minus, Plus, ShoppingBag, X } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useEffect, useId, useRef, useState } from "react";
 import { NAV_GROUPS, type NavColumn } from "@/lib/navigation";
@@ -8,6 +8,7 @@ import { cn } from "@/lib/cn";
 import { useFocusTrap } from "@/lib/use-focus-trap";
 import { Wordmark } from "@/components/layout/wordmark";
 import { useWishlist } from "@/components/wishlist/wishlist-provider";
+import { SiteSearch } from "@/components/layout/site-search";
 
 export interface SiteHeaderProps {
   /** True on pages whose first section is full-bleed imagery, so the bar sits
@@ -113,13 +114,7 @@ export function SiteHeader({ overlay = false }: SiteHeaderProps) {
           </Link>
 
           <div className="-mr-2.5 flex items-center">
-            <button
-              type="button"
-              aria-label="Търсене"
-              className="grid size-11 place-items-center text-[20px] md:size-12 md:text-[24px]"
-            >
-              <MagnifyingGlass aria-hidden />
-            </button>
+            <SiteSearch />
             <Link
               href="/wishlist"
               aria-label={
