@@ -35,6 +35,29 @@ export interface Intent {
   size?: string;
   /** What to search the catalogue for, with the question words removed. */
   query?: string;
+  /** For an order lookup: the email the order was placed with. */
+  email?: string;
+  /** For an order lookup: the number from the confirmation. */
+  orderNumber?: string;
+}
+
+/** The email address in a message, if there is one. */
+export function emailIn(text: string): string | null {
+  const match = text.match(/[^\s@]+@[^\s@]+\.[^\s@]{2,}/);
+  return match ? match[0].toLowerCase().replace(/[.,;]+$/, "") : null;
+}
+
+/**
+ * An order number: one to six digits.
+ *
+ * Wider than an article number on purpose. Order numbers start at 1 and count
+ * up, so the shop's fourth order is `4` — and by the time it reaches five
+ * digits it looks exactly like an article number. Nothing here can tell them
+ * apart, which is why the email decides; see `detectIntent`.
+ */
+export function orderNumber(text: string): string | null {
+  const match = text.match(/(?:^|\D)(\d{1,6})(?:\D|$)/);
+  return match?.[1] ?? null;
 }
 
 /* Ordered: the first rule that matches wins, so the specific questions are
@@ -117,6 +140,15 @@ export function detectIntent(message: string): Intent {
 
   const article = articleNumber(typed);
   const size = sizeIn(both);
+  const email = emailIn(message);
+
+  /* An email decides. Order numbers and article numbers are both bare digits
+     and become indistinguishable once the shop has passed its ten-thousandth
+     order — but nobody puts an email address in a question about a t-shirt.
+     One reliable signal beats two ambiguous ones. */
+  if (email) {
+    return { kind: "order", email, orderNumber: orderNumber(typed) ?? undefined };
+  }
 
   /* An article number outranks every keyword. Someone who types a number is
      holding a label, and that is the least ambiguous thing anyone sends. */
@@ -124,6 +156,11 @@ export function detectIntent(message: string): Intent {
 
   for (const rule of RULES) {
     if (rule.words.some((word) => asks(both, word))) {
+      /* An order question with no email yet: carry whatever number was typed,
+         so the answer can ask only for what is still missing. */
+      if (rule.kind === "order") {
+        return { kind: "order", orderNumber: orderNumber(typed) ?? undefined };
+      }
       return { kind: rule.kind, size };
     }
   }

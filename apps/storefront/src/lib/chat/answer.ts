@@ -1,7 +1,7 @@
 "use server";
 
 import { detectIntent, rank } from "@redpoint/catalog";
-import { medusaFetch } from "@/lib/medusa";
+import { medusaFetch, medusaMutate } from "@/lib/medusa";
 import {
   getRegionId,
   listProducts,
@@ -12,6 +12,7 @@ import {
   type StoreProduct,
 } from "@/lib/catalog";
 import { STORES } from "@/lib/home";
+import { formatEur } from "@/lib/price";
 
 /**
  * The chatbot's one server entry point.
@@ -153,6 +154,70 @@ function searchText(product: StoreProduct): string {
   return `${product.title} ${colors} ${categories}`;
 }
 
+interface OrderStatus {
+  displayId: number;
+  placedAt: string;
+  status: string;
+  shipped: boolean;
+  packed: boolean;
+  paid: boolean;
+  total: number;
+  itemCount: number;
+  shippingMethod: string | null;
+}
+
+async function lookupOrder(orderNumber: string, email: string): Promise<OrderStatus | null> {
+  try {
+    const { order } = await medusaMutate<{ order: OrderStatus }>("/store/order-lookup", {
+      body: { orderNumber: Number(orderNumber), email },
+    });
+    return order;
+  } catch {
+    /* Not found, wrong email and too many attempts all arrive here, and all
+       three get the same answer from the caller — the same reason the route
+       does not distinguish them. */
+    return null;
+  }
+}
+
+/**
+ * An order's state, in the words a person uses.
+ *
+ * Medusa's own vocabulary — `not_fulfilled`, `awaiting` — answers a question
+ * nobody asked. What a shopper wants to know is whether it has left the shop
+ * yet, so that is the sentence.
+ */
+function describeOrder(order: OrderStatus): string {
+  const placed = new Date(order.placedAt).toLocaleDateString("bg-BG", {
+    day: "numeric",
+    month: "long",
+  });
+
+  const where =
+    order.status === "canceled"
+      ? "Тази поръчка е отказана."
+      : order.shipped
+        ? "Предадена е на куриера."
+        : order.packed
+          ? "Опакована е и чака куриера."
+          : "Приготвяме я. Ще я предадем на куриера до следващия работен ден.";
+
+  const paid =
+    order.paid
+      ? "Платена."
+      : order.shippingMethod
+        ? "Плащането е при получаване."
+        : "";
+
+  return [
+    `Поръчка № ${order.displayId} от ${placed}, ${order.itemCount} артикула, ${formatEur(order.total)}.`,
+    where,
+    paid,
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
 function articleOf(product: StoreProduct): string | null {
   return product.metadata?.article_no ?? null;
 }
@@ -278,15 +343,28 @@ export async function ask(message: string): Promise<ChatAnswer> {
         links: [{ label: "адреси и карта", href: "/help/contact" }],
       };
 
-    case "order":
-      /* Deliberately a phone number rather than a lookup form. An order status
-         needs the order number and the email together, and until that is built
-         behind a rate limit, guessing at it here would either answer nobody or
-         answer the wrong person. */
-      return {
-        text: "За конкретна поръчка се обадете в магазина или отговорете на имейла с потвърждението — там е номерът ѝ.",
-        phones: STORES.slice(0, 1).map((store) => ({ name: store.name, phone: store.phone })),
-      };
+    case "order": {
+      /* Both, or neither. The number alone is guessable and the email alone
+         would list a stranger's purchases; the shop front asks for the pair the
+         same way the route demands it. */
+      if (!intent.email || !intent.orderNumber) {
+        return {
+          text: intent.orderNumber
+            ? `Намерих номер ${intent.orderNumber}. Напишете и имейла, с който е направена поръчката, и ще проверя.`
+            : "Напишете номера на поръчката и имейла, с който е направена — двете заедно, в едно съобщение. И двете са в писмото с потвърждението.",
+        };
+      }
+
+      const status = await lookupOrder(intent.orderNumber, intent.email);
+      if (!status) {
+        return {
+          text: "Не намирам такава поръчка. Проверете номера и имейла — те са в писмото с потвърждението.",
+          phones: STORES.slice(0, 1).map((store) => ({ name: store.name, phone: store.phone })),
+        };
+      }
+
+      return { text: describeOrder(status) };
+    }
 
     case "human":
       return {

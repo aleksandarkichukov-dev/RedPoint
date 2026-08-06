@@ -66,6 +66,31 @@ check("latin search is converted", i.query === "тениска", i.query);
 is("имате ли 15452 размер L", "stock");
 is("как да си измеря размера", "sizes");
 
+// --- order lookups: the email is what decides ------------------------------
+/* Order numbers and article numbers are both bare digits and become
+   indistinguishable once the shop passes its ten-thousandth order. Nobody puts
+   an email in a question about a t-shirt, so the email settles it. */
+i = detectIntent("поръчка 4 ivan@example.bg");
+check("number plus email is an order", i.kind === "order", i.kind);
+check("the number is captured", i.orderNumber === "4", i.orderNumber);
+check("the email is captured", i.email === "ivan@example.bg", i.email);
+
+i = detectIntent("17350 ivan@example.bg");
+check("an email beats an article number", i.kind === "order", i.kind);
+check("and the digits become the order number", i.orderNumber === "17350", i.orderNumber);
+
+i = detectIntent("докъде е поръчка 4");
+check("an order question without an email stays an order", i.kind === "order", i.kind);
+check("with the number kept for the follow-up", i.orderNumber === "4", i.orderNumber);
+check("and no email invented", i.email === undefined, i.email);
+
+check("a trailing full stop is trimmed off the email",
+  detectIntent("поръчка 4, ivan@example.bg.").email === "ivan@example.bg",
+  detectIntent("поръчка 4, ivan@example.bg.").email);
+
+check("no email in an ordinary question",
+  detectIntent("имате ли черна тениска").email === undefined);
+
 // --- nothing useful --------------------------------------------------------
 is("аб", "unknown");
 is("?", "unknown");
