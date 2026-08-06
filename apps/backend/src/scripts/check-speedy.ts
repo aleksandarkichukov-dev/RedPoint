@@ -43,7 +43,12 @@ export default async function checkSpeedy({ container }: ExecArgs) {
     logger.info(`  ${site.type} ${site.name}, ${site.postCode} (${site.region ?? "-"}) id ${site.id}`);
   }
 
-  const varna = sites.find((site) => site.name === "Варна" && site.type.startsWith("гр"));
+  /* Case-folded: Speedy answer in capitals — "ВАРНА", not "Варна" — so an
+     exact comparison finds nothing and reads as "no such town". Anything that
+     matches a settlement by name against their data has to fold case. */
+  const varna = sites.find(
+    (site) => site.name.toLowerCase() === "варна" && site.type.startsWith("гр"),
+  );
   if (!varna) {
     logger.warn("no town called Варна came back; the office lookup is skipped");
     return;
