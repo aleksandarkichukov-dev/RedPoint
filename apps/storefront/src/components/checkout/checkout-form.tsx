@@ -44,6 +44,17 @@ export function CheckoutForm({
 
   const chosenOption = options.find((option) => option.id === delivery) ?? null;
 
+  /* Which courier carries this option, read from its name. The name is the one
+     thing the shopper, the order and the waybill button all see, so keying off
+     it means they cannot disagree about who has the parcel. */
+  const courier: "econt" | "speedy" | null = !chosenOption
+    ? null
+    : /еконт/i.test(chosenOption.name)
+      ? "econt"
+      : /спиди/i.test(chosenOption.name)
+        ? "speedy"
+        : null;
+
   const chooseDelivery = (optionId: string) => {
     setDelivery(optionId);
     /* An office chosen for one courier means nothing for another. Keeping it
@@ -147,15 +158,16 @@ export function CheckoutForm({
           </ul>
         </fieldset>
 
-        {/* Only for Econt to an office. Speedy's office list needs their API,
-            which is refusing us — so their option still takes a typed address
-            rather than pretending to offer a choice it cannot load. */}
-        {chosenOption?.kind === "office" && /еконт/i.test(chosenOption.name) && (
+        {/* Both couriers now. The name on the shipping option is what says
+            which network to list — it is the same string the shop sees on the
+            order and the same one the waybill button reads, so the three
+            cannot disagree about who is carrying the parcel. */}
+        {chosenOption?.kind === "office" && courier && (
           <fieldset className="flex flex-col gap-3">
             <legend className="mb-2 font-body text-body text-muted-text">
-              Кой офис на Еконт
+              Кой офис на {courier === "econt" ? "Еконт" : "Спиди"}
             </legend>
-            <OfficePicker city={city} value={office} onChange={setOffice} />
+            <OfficePicker courier={courier} city={city} value={office} onChange={setOffice} />
             {office && (
               <p className="font-body text-body text-primary">
                 Избрано: {office.name} · {office.address}

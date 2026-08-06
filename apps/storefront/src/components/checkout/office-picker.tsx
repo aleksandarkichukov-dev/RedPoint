@@ -9,8 +9,9 @@ import { cn } from "@/lib/cn";
  * Our own list rather than Econt's iframe widget, which the brief suggested.
  * Two reasons, and they are worth stating because it is a deviation:
  *
- *   Speedy have no widget, so an office picker has to exist here anyway. Two
- *   couriers behind two different pickers would look like two different shops.
+ *   Speedy have no widget, so an office picker has to exist here anyway, and
+ *   one picker now serves both — two couriers behind two different pickers
+ *   would look like two different shops.
  *
  *   The widget lives on Econt's domain and carries their styling. Dropping it
  *   into a monochrome, square-cornered checkout is the one place on the site
@@ -30,10 +31,13 @@ export interface Office {
 }
 
 export function OfficePicker({
+  courier,
   city,
   value,
   onChange,
 }: {
+  /** Which network to list — the two answer in the same shape by now. */
+  courier: "econt" | "speedy";
   /** What the shopper typed in the city field; the list follows it. */
   city: string;
   value: Office | null;
@@ -52,13 +56,13 @@ export function OfficePicker({
     }
 
     /* Debounced: the city field is typed into letter by letter, and a request
-       per keystroke is one Econt does not deserve and the shopper does not
-       benefit from. */
+       per keystroke is one the courier does not deserve and the shopper does
+       not benefit from. */
     let live = true;
     const timer = setTimeout(async () => {
       try {
         const response = await fetch(
-          `/api/econt/offices?city=${encodeURIComponent(wanted)}`,
+          `/api/offices?courier=${courier}&city=${encodeURIComponent(wanted)}`,
         );
         const data = await response.json();
         if (!live) return;
@@ -73,7 +77,7 @@ export function OfficePicker({
       live = false;
       clearTimeout(timer);
     };
-  }, [city]);
+  }, [city, courier]);
 
   if (city.trim().length < 2) {
     return (
@@ -144,7 +148,7 @@ export function OfficePicker({
               >
                 <input
                   type="radio"
-                  name="econtOffice"
+                  name="courierOffice"
                   checked={chosen}
                   onChange={() => onChange(office)}
                   className="mt-1 size-4 shrink-0 accent-primary"
