@@ -77,6 +77,39 @@ export async function listOffices(countryCode = "BGR"): Promise<EcontOffice[]> {
   }));
 }
 
+/**
+ * A settlement's id, which is the only address Econt never argues with.
+ *
+ * Naming a city and its post code together is rejected as "Несъответствие
+ * между населено място и пощенски код" often enough to be unusable — their
+ * data has several records per city and the pair does not always agree. An id
+ * is exact.
+ *
+ * Looked up rather than written down, because ids are per system: Варна is 7
+ * in the demo and something else in production, so a constant would work
+ * through every test and fail on the first real parcel.
+ */
+const cityIds = new Map<string, number>();
+
+export async function cityId(name: string): Promise<number> {
+  const wanted = name.trim().toLowerCase();
+  const known = cityIds.get(wanted);
+  if (known) return known;
+
+  const data = await call<{ cities?: { id: number; name: string }[] }>(
+    "Nomenclatures/NomenclaturesService.getCities.json",
+    { countryCode: "BGR" },
+  );
+
+  for (const city of data.cities ?? []) {
+    if (!cityIds.has(city.name.toLowerCase())) cityIds.set(city.name.toLowerCase(), city.id);
+  }
+
+  const found = cityIds.get(wanted);
+  if (!found) throw new Error(`Econt has no city named "${name}"`);
+  return found;
+}
+
 /** The offices in one settlement, for a checkout that already knows the city. */
 export async function officesInCity(city: string): Promise<EcontOffice[]> {
   const wanted = city.trim().toLowerCase();
