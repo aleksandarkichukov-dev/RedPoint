@@ -57,9 +57,22 @@ export async function getSelectedShippingOptionId(cartId: string): Promise<strin
   return cart.shipping_methods?.[0]?.shipping_option_id ?? null;
 }
 
-export async function setShippingMethod(cartId: string, optionId: string): Promise<void> {
+/**
+ * Attaches a shipping method, and the office it goes to when there is one.
+ *
+ * The office rides in `data`, which Medusa carries from the shipping method
+ * through to fulfilment. Keeping it on the cart's metadata instead would mean
+ * whoever prints the waybill has to know to look somewhere else.
+ */
+export async function setShippingMethod(
+  cartId: string,
+  optionId: string,
+  data?: { officeCode?: string; officeName?: string },
+): Promise<void> {
+  const office = data?.officeCode ? data : undefined;
+
   await medusaMutate(`/store/carts/${cartId}/shipping-methods`, {
-    body: { option_id: optionId },
+    body: { option_id: optionId, ...(office ? { data: office } : {}) },
   });
 }
 

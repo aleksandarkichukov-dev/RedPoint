@@ -280,14 +280,22 @@ export default async function seed({ container }: ExecArgs) {
     const existing = existingShippingOptions.find((entry) => entry.name === option.name);
 
     if (existing) {
-      /* Prices are re-applied rather than skipped. The first seed shipped
-         placeholder amounts, and a shopper being quoted 5 euro when the shop
-         charges 2.55 is worse than an extra write on every run. */
+      /* Prices AND the type are re-applied rather than skipped. The first seed
+         shipped placeholder amounts, and a shopper being quoted 5 euro when the
+         shop charges 2.55 is worse than an extra write on every run.
+
+         The type matters for the same reason and was missed the first time:
+         these options were created before the office/address codes existed, so
+         three of the four sat on `standard` while the seed file claimed
+         otherwise. Checkout keys the office picker off that code, so the picker
+         silently never appeared — the file said one thing and the database
+         said another, with nothing to make the disagreement visible. */
       await updateShippingOptionsWorkflow(container).run({
         input: [
           {
             id: existing.id,
             prices: [{ currency_code: "eur", amount: option.amount }],
+            type: { label: option.name, description: option.name, code: option.code },
           },
         ],
       });

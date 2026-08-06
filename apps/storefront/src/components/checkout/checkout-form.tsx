@@ -7,6 +7,7 @@ import { cn } from "@/lib/cn";
 import { placeOrderAction, setDeliveryAction, type CheckoutState } from "@/lib/checkout-actions";
 import type { ShippingOption } from "@/lib/checkout";
 import { formatEur } from "@/lib/price";
+import { OfficePicker, type Office } from "@/components/checkout/office-picker";
 import { useRouter } from "next/navigation";
 
 const PAYMENT_METHODS = [
@@ -36,11 +37,18 @@ export function CheckoutForm({
   );
   const [delivery, setDelivery] = useState(selectedOptionId ?? "");
   const [payment, setPayment] = useState<PaymentMethod>("cod");
+  const [city, setCity] = useState("");
+  const [office, setOffice] = useState<Office | null>(null);
   const [, startTransition] = useTransition();
   const router = useRouter();
 
+  const chosenOption = options.find((option) => option.id === delivery) ?? null;
+
   const chooseDelivery = (optionId: string) => {
     setDelivery(optionId);
+    /* An office chosen for one courier means nothing for another. Keeping it
+       would put an Econt office code on a Speedy waybill. */
+    setOffice(null);
     // Sets it on the cart too, so the totals beside the form are the real ones.
     startTransition(async () => {
       await setDeliveryAction(optionId);
@@ -83,7 +91,15 @@ export function CheckoutForm({
         <h2 className="text-subhead font-bold text-primary uppercase">2 · Доставка</h2>
 
         <div className="grid gap-4 sm:grid-cols-[1fr_10rem]">
-          <Input label="Град" name="city" autoComplete="address-level2" required error={fieldError("city")} />
+          <Input
+            label="Град"
+            name="city"
+            autoComplete="address-level2"
+            required
+            error={fieldError("city")}
+            value={city}
+            onChange={(event) => setCity(event.target.value)}
+          />
           <Input label="Пощенски код" name="postalCode" autoComplete="postal-code" required error={fieldError("postalCode")} />
         </div>
         <Input
@@ -130,6 +146,31 @@ export function CheckoutForm({
             ))}
           </ul>
         </fieldset>
+
+        {/* Only for Econt to an office. Speedy's office list needs their API,
+            which is refusing us — so their option still takes a typed address
+            rather than pretending to offer a choice it cannot load. */}
+        {chosenOption?.kind === "office" && /еконт/i.test(chosenOption.name) && (
+          <fieldset className="flex flex-col gap-3">
+            <legend className="mb-2 font-body text-body text-muted-text">
+              Кой офис на Еконт
+            </legend>
+            <OfficePicker city={city} value={office} onChange={setOffice} />
+            {office && (
+              <p className="font-body text-body text-primary">
+                Избрано: {office.name} · {office.address}
+              </p>
+            )}
+          </fieldset>
+        )}
+
+        {/* Travels with the order so the waybill can be addressed to it. */}
+        <input type="hidden" name="officeCode" value={office?.code ?? ""} />
+        <input
+          type="hidden"
+          name="officeName"
+          value={office ? `${office.name}, ${office.address}` : ""}
+        />
       </section>
 
       <section className="flex flex-col gap-4">

@@ -87,7 +87,14 @@ export async function placeOrderAction(
     /* Re-applied on submit rather than trusted from the earlier click: the
        address can change the available options, and the last thing selected in
        the browser is not necessarily what the cart is carrying. */
-    await setShippingMethod(cartId, shippingOptionId);
+    /* The chosen office travels with the shipping method, not beside it. It
+       is part of where the parcel goes, and Medusa carries `data` on a
+       shipping method through to fulfilment — which is where a waybill will
+       read it. Empty for a delivery to the door. */
+    await setShippingMethod(cartId, shippingOptionId, {
+      officeCode: value("officeCode"),
+      officeName: value("officeName"),
+    });
     await initPaymentSession(cartId, COD_PROVIDER);
 
     const order = await completeCart(cartId);
