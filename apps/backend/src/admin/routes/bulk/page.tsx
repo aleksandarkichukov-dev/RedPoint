@@ -173,12 +173,20 @@ const BulkPage = () => {
           </Badge>
 
           <div className="ml-auto flex gap-2">
+            {/* The catalogue first: it is the one somebody reaches for daily,
+                and the template is what they need once. */}
             <Button
               variant="secondary"
-              onClick={() => window.open("/admin/bulk/template", "_blank")}
+              onClick={() => window.open("/admin/bulk/export", "_blank")}
             >
               <ArrowDownTray />
-              Свали шаблон
+              Свали каталога
+            </Button>
+            <Button
+              variant="transparent"
+              onClick={() => window.open("/admin/bulk/template", "_blank")}
+            >
+              Празен шаблон
             </Button>
             <Button
               variant="secondary"

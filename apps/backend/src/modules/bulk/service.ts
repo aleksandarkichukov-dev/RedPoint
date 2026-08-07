@@ -154,20 +154,53 @@ export async function reviewPhotosOnly(
 export async function loadExisting(query: MedusaQuery): Promise<ExistingProduct[]> {
   const { data } = await query.graph({
     entity: "product",
-    fields: ["id", "external_id", "variants.id", "variants.sku"],
+    fields: [
+      "id",
+      "external_id",
+      "variants.id",
+      "variants.sku",
+      /* Colour and size, because they are what identifies a variant. The sku is
+         only its label, and the catalogue scraped from the old site carries
+         skus in a different shape from the ones this module builds. */
+      "variants.options.value",
+      "variants.options.option.title",
+    ],
   });
 
   return data
     .filter((product: { external_id: string | null }) => Boolean(product.external_id))
-    .map((product: { id: string; external_id: string; variants?: { id: string; sku: string }[] }) => ({
+    .map((product: Record<string, any>) => ({
       id: product.id,
       externalId: product.external_id,
-      variants: (product.variants ?? []).map((variant) => ({ id: variant.id, sku: variant.sku })),
+      variants: (product.variants ?? []).map((variant: Record<string, any>) => {
+        const options = variant.options ?? [];
+        return {
+          id: variant.id,
+          sku: variant.sku,
+          color: options.find((o: any) => o.option?.title === "Цвят")?.value,
+          size: options.find((o: any) => o.option?.title === "Размер")?.value,
+        };
+      }),
     }));
 }
 
-/** The catalogue as the sheet would express it, for the export. */
-export async function exportCatalogue(query: MedusaQuery): Promise<BulkProduct[]> {
+/**
+ * The catalogue as the sheet would express it, for the export.
+ *
+ * The round trip is the promise this makes: downloaded and re-uploaded with
+ * nothing touched, it must change nothing. That is what makes it safe to use
+ * for a bulk price change — the shop edits one column and trusts the rest to
+ * come back as it left.
+ *
+ * Stock is read in one pass rather than per row. `inventory_quantity` is not
+ * something `query.graph` returns at all — asking for it yields undefined with
+ * no error — so the levels come from the inventory module, keyed by the
+ * inventory item behind each variant.
+ */
+export async function exportCatalogue(
+  query: MedusaQuery,
+  stockByVariantId: Map<string, number> = new Map(),
+): Promise<BulkProduct[]> {
   const { data } = await query.graph({
     entity: "product",
     fields: [
@@ -183,7 +216,8 @@ export async function exportCatalogue(query: MedusaQuery): Promise<BulkProduct[]
       "variants.sku",
       "variants.options.value",
       "variants.options.option.title",
-      "variants.calculated_price.calculated_amount",
+      "variants.prices.amount",
+      "variants.prices.currency_code",
     ],
   });
 
@@ -202,9 +236,7 @@ export async function exportCatalogue(query: MedusaQuery): Promise<BulkProduct[]
 
       const entry: BulkProduct["colors"][number] =
         colors.get(color) ?? { name: color, sizes: [] };
-      /* Quantity is filled in by the caller, which has the inventory levels.
-         Reading them per variant here would be a query per row. */
-      entry.sizes.push({ label: size, quantity: 0 });
+      entry.sizes.push({ label: size, quantity: stockByVariantId.get(variant.id) ?? 0 });
       colors.set(color, entry);
     }
 
@@ -213,7 +245,16 @@ export async function exportCatalogue(query: MedusaQuery): Promise<BulkProduct[]
       name: product.title,
       categoryKey: product.categories?.[0]?.handle ?? "",
       categoryName: product.categories?.[0]?.name ?? "",
-      price: Number(product.variants?.[0]?.calculated_price?.calculated_amount ?? 0),
+      /* The stored price, not the calculated one.  needs a
+         pricing context — a region and a currency — and an export has no cart
+         to take one from; asking for it throws "requires currency_code in the
+         pricing context". The shop sells in one currency, so the stored EUR
+         price is both simpler and the number the sheet means. */
+      price: Number(
+        (product.variants?.[0]?.prices ?? []).find(
+          (entry: { currency_code?: string }) => entry.currency_code === "eur",
+        )?.amount ?? 0,
+      ),
       compareAtPrice: (product.metadata?.compare_at_eur as number | null) ?? null,
       material: product.material ?? null,
       description: product.description ?? null,

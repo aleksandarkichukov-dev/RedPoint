@@ -16,7 +16,25 @@ export interface ExistingProduct {
   id: string;
   /** The article number, carried on the product as `external_id`. */
   externalId: string;
-  variants: { id: string; sku: string; inventoryItemId?: string }[];
+  /** Colour and size are what identify a variant; the sku is only its label. */
+  variants: { id: string; sku: string; color?: string; size?: string; inventoryItemId?: string }[];
+}
+
+/**
+ * What actually identifies a variant: its colour and its size.
+ *
+ * Not the sku. This module builds skus as `{article}-{colour}-{size}`, and the
+ * catalogue scraped from the old site carries skus like `16891-27-chart:M` —
+ * so matching on them meant every existing variant looked new. Uploading the
+ * shop's own exported catalogue back would have added a second copy of all 801
+ * variants and orphaned the originals, which is the exact thing this tool
+ * exists to make safe.
+ *
+ * Colour and size are what a shopkeeper means by "the same item", and they are
+ * what the sheet carries in its own columns.
+ */
+function variantKey(color: string, size: string): string {
+  return `${color.trim().toLowerCase()}|${size.trim().toLowerCase()}`;
 }
 
 export interface PlannedVariant {
@@ -80,8 +98,13 @@ export function planImport(
 
   for (const product of products) {
     const current = existingByArticle.get(product.sku);
+    /* Keyed by colour and size. A variant with neither recorded cannot be
+       matched at all and is left out, so it shows up as orphaned rather than
+       being silently paired with the wrong row. */
     const currentVariants = new Map(
-      (current?.variants ?? []).map((variant) => [variant.sku, variant]),
+      (current?.variants ?? [])
+        .filter((variant) => variant.color && variant.size)
+        .map((variant) => [variantKey(variant.color!, variant.size!), variant]),
     );
 
     const variants: PlannedVariant[] = [];
@@ -93,10 +116,14 @@ export function planImport(
       for (const size of color.sizes) {
         if (!sizes.includes(size.label)) sizes.push(size.label);
 
-        const sku = variantSku(product.sku, color.name, size.label);
-        const existingVariant = currentVariants.get(sku);
+        const existingVariant = currentVariants.get(variantKey(color.name, size.label));
         if (existingVariant) variantsUpdated += 1;
         else variantsCreated += 1;
+
+        /* An existing variant keeps the sku it already has. Ours is only ever
+           invented for a new one — renaming a variant's sku on every upload
+           would rewrite identifiers the shop may have printed on something. */
+        const sku = existingVariant?.sku ?? variantSku(product.sku, color.name, size.label);
 
         variants.push({
           sku,
@@ -130,9 +157,13 @@ export function planImport(
       /* A colour or size dropped from the sheet. Reported rather than deleted:
          a variant that has been ordered cannot simply vanish, and a shop that
          forgot a row should be told, not silently obeyed. */
-      const plannedSkus = new Set(variants.map((variant) => variant.sku));
+      const plannedKeys = new Set(
+        variants.map((variant) => variantKey(variant.color, variant.size)),
+      );
       for (const variant of current.variants) {
-        if (!plannedSkus.has(variant.sku)) {
+        const key =
+          variant.color && variant.size ? variantKey(variant.color, variant.size) : null;
+        if (!key || !plannedKeys.has(key)) {
           orphanedVariants.push({ sku: variant.sku, productSku: product.sku });
         }
       }
