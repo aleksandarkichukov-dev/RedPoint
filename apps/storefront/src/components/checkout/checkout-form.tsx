@@ -6,16 +6,12 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
 import { placeOrderAction, setDeliveryAction, type CheckoutState } from "@/lib/checkout-actions";
 import type { ShippingOption } from "@/lib/checkout";
+import type { PaymentMethodOption } from "@/lib/payment-methods";
 import { formatEur } from "@/lib/price";
 import { OfficePicker, type Office } from "@/components/checkout/office-picker";
 import { useRouter } from "next/navigation";
 
-const PAYMENT_METHODS = [
-  { value: "cod", label: "Наложен платеж", note: "без такса" },
-  { value: "card", label: "Плащане с карта", note: "чрез myPOS" },
-] as const;
-
-type PaymentMethod = (typeof PAYMENT_METHODS)[number]["value"];
+type PaymentMethod = PaymentMethodOption["value"];
 
 /**
  * One page, three sections, no steps.
@@ -27,9 +23,13 @@ type PaymentMethod = (typeof PAYMENT_METHODS)[number]["value"];
 export function CheckoutForm({
   options,
   selectedOptionId,
+  paymentMethods,
 }: {
   options: ShippingOption[];
   selectedOptionId: string | null;
+  /* Decided on the server. Card payment is off until myPOS has taken one, and
+     a browser must not be the thing that knows whether it is on. */
+  paymentMethods: PaymentMethodOption[];
 }) {
   const [state, formAction, submitting] = useActionState<CheckoutState, FormData>(
     placeOrderAction,
@@ -189,7 +189,7 @@ export function CheckoutForm({
         <h2 className="text-subhead font-bold text-primary uppercase">3 · Плащане</h2>
 
         <ul className="flex flex-col divide-y divide-border border-y border-border">
-          {PAYMENT_METHODS.map((method) => (
+          {paymentMethods.map((method) => (
             <li key={method.value}>
               <label
                 className={cn(

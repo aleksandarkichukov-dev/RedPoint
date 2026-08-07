@@ -155,6 +155,11 @@ services:
       # production database is seeded is a restart rather than a rebuild —
       # which matters because this server cannot build.
       MEDUSA_PUBLISHABLE_KEY: ${MEDUSA_PUBLISHABLE_KEY:?printed by the seed}
+      SITE_URL: ${SITE_URL:-https://redpointbg.com}
+      # Off unless explicitly "on". Checkout offers cash on delivery only while
+      # myPOS is unproven, and the server refuses a card order even if the
+      # browser sends one.
+      CARD_PAYMENT: ${CARD_PAYMENT:-}
       # Next is ~150 MB and has no reason to grow; the cap is here so that if it
       # ever does, it fails visibly rather than by pushing Medusa out of memory.
       NODE_OPTIONS: --max-old-space-size=400

@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { CheckoutForm } from "@/components/checkout/checkout-form";
 import { getCart } from "@/lib/cart";
 import { getSelectedShippingOptionId, listShippingOptions } from "@/lib/checkout";
+import { paymentMethods } from "@/lib/payment-methods";
 import { formatBgn, formatEur } from "@/lib/price";
 
 export const metadata: Metadata = {
@@ -27,7 +28,11 @@ export default async function CheckoutPage() {
       <h1 className="text-display">Поръчка</h1>
 
       <div className="grid gap-10 lg:grid-cols-[1.4fr_1fr] lg:gap-16">
-        <CheckoutForm options={options} selectedOptionId={selectedOptionId} />
+        <CheckoutForm
+          options={options}
+          selectedOptionId={selectedOptionId}
+          paymentMethods={paymentMethods()}
+        />
 
         <aside className="flex h-fit flex-col gap-4 border-t border-border pt-6 lg:sticky lg:top-28">
           <h2 className="text-subhead font-bold text-primary uppercase">Вашата поръчка</h2>

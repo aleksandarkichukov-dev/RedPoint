@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { MyposRedirect } from "@/components/checkout/mypos-redirect";
 import { buildMyposPurchase } from "@/lib/mypos";
+import { cardPaymentEnabled } from "@/lib/payment-methods";
 
 export const metadata: Metadata = {
   title: "Прехвърляме ви към плащането",
@@ -26,6 +27,13 @@ export const dynamic = "force-dynamic";
  */
 export default async function PayPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+
+  /* The third gate, and the one that catches a bookmark. Checkout does not
+     offer the card and the action refuses it, but this page is a URL somebody
+     can reach directly — from history, or from a link in a cancelled-payment
+     email. While myPOS is unproven it must not hand anybody to them. */
+  if (!cardPaymentEnabled()) notFound();
+
   const purchase = await buildMyposPurchase(id);
 
   if (!purchase) notFound();

@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { buttonClasses } from "@/components/ui/button";
 import { getOrder } from "@/lib/checkout";
 import { formatBgn, formatEur } from "@/lib/price";
+import { cardPaymentEnabled } from "@/lib/payment-methods";
 
 export const metadata: Metadata = {
   title: "Поръчката е приета",
@@ -59,14 +60,21 @@ export default async function OrderPage({
       {cancelled && (
         <div className="flex flex-col gap-4 border border-primary p-4 md:p-6">
           <p className="max-w-[60ch] font-body text-body text-body-text">
-            Можете да опитате плащането отново, или да се обадите в магазина, за
-            да я оставим с наложен платеж — тогава плащате на куриера при
-            получаване.
+            {cardPaymentEnabled()
+              ? "Можете да опитате плащането отново, или да се обадите в магазина, за да я оставим с наложен платеж — тогава плащате на куриера при получаване."
+              : "Обадете се в магазина, за да я оставим с наложен платеж — тогава плащате на куриера при получаване."}
           </p>
           <div className="flex flex-wrap items-center gap-4">
-            <Link href={`/checkout/pay/${id}`} className={buttonClasses("solid")}>
-              опитай плащането отново
-            </Link>
+            {/* Only when there is somewhere to send them. With card payment off
+                this button led to a page that answers 404, which is a worse
+                answer than not offering it — the shopper is already in the one
+                state where the shop has to look like it knows what it is
+                doing. */}
+            {cardPaymentEnabled() && (
+              <Link href={`/checkout/pay/${id}`} className={buttonClasses("solid")}>
+                опитай плащането отново
+              </Link>
+            )}
             <a
               href="tel:+359892475402"
               className="font-body text-nav text-primary underline underline-offset-4"

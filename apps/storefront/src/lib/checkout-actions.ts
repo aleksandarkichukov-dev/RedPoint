@@ -11,6 +11,7 @@ import {
   setPaymentIntent,
   setShippingMethod,
 } from "@/lib/checkout";
+import { cardPaymentEnabled } from "@/lib/payment-methods";
 
 /**
  * Checkout, as server actions.
@@ -80,7 +81,16 @@ export async function placeOrderAction(
   const shippingOptionId = value("shippingOptionId");
   if (!shippingOptionId) return { error: "Изберете начин на доставка." };
 
-  const payWithCard = value("paymentMethod") === "card";
+  /* Refused here, not merely hidden in the form. A radio button that is not
+     rendered stops nobody from posting the value — this is a server action and
+     the browser decides what it sends. Sending an order down the card path
+     while myPOS is unproven means a shopper reaching a payment page that may
+     reject them, or paying for an order that then sits unpaid in the admin. */
+  const payWithCard = value("paymentMethod") === "card" && cardPaymentEnabled();
+
+  if (value("paymentMethod") === "card" && !cardPaymentEnabled()) {
+    return { error: "Плащането с карта още не е активно. Изберете наложен платеж." };
+  }
 
   let orderId: string;
   try {
