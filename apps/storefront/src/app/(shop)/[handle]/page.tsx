@@ -102,12 +102,16 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
 
         {children.length > 0 && (
           <nav aria-label="Подкатегории">
-            <ul className="flex flex-wrap gap-x-4 gap-y-2">
+            {/* Padded to a thumb. These were 16px tall with 16px between them,
+                which on a phone is a row of neighbouring words rather than a
+                row of buttons. The vertical gap comes out because the padding
+                replaces it. */}
+            <ul className="-my-2 flex flex-wrap gap-x-4">
               {children.map((child) => (
                 <li key={child.id}>
                   <Link
                     href={`/${child.handle}`}
-                    className="font-body text-nav text-body-text underline underline-offset-4 hover:text-primary"
+                    className="block py-2 font-body text-nav text-body-text underline underline-offset-4 hover:text-primary"
                   >
                     {child.name}
                   </Link>

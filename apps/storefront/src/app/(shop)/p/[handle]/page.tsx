@@ -44,10 +44,14 @@ export default async function ProductPage({ params }: PageProps) {
 
   return (
     <div className="mx-auto flex w-full max-w-(--container-page) flex-col gap-12 px-4 py-8 md:px-8 md:py-12">
-      <nav aria-label="Пътека" className="font-body text-body text-muted-text">
+      {/* -my-2 keeps the row where it was while each link grows a thumb's
+          worth of padding. They were 16px tall, which on a phone is two words
+          a few pixels apart — and this is the crumb somebody taps to go back
+          to the category they were browsing. */}
+      <nav aria-label="Пътека" className="-my-2 font-body text-body text-muted-text">
         <ol className="flex flex-wrap items-center gap-x-2">
           <li>
-            <Link href="/men" className="hover:text-primary">
+            <Link href="/men" className="block py-2 hover:text-primary">
               Мъже
             </Link>
           </li>
@@ -55,7 +59,7 @@ export default async function ProductPage({ params }: PageProps) {
             <>
               <li aria-hidden>/</li>
               <li>
-                <Link href={`/${category.handle}`} className="hover:text-primary">
+                <Link href={`/${category.handle}`} className="block py-2 hover:text-primary">
                   {category.name}
                 </Link>
               </li>

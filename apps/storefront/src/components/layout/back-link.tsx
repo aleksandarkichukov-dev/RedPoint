@@ -75,7 +75,10 @@ export function BackLink() {
       type="button"
       onClick={() => router.back()}
       aria-label="Назад към предишната страница"
-      className="group -ml-2.5 flex w-fit items-center py-2 pl-2.5 pr-3 font-body text-control text-primary active:scale-[0.97]"
+      /* py-3 rather than py-2: 36px was under the 44 a thumb wants, and this is
+         the control somebody uses one-handed on a phone while scrolling back
+         through a category. */
+      className="group -my-1 -ml-2.5 flex w-fit items-center py-3 pl-2.5 pr-3 font-body text-control text-primary active:scale-[0.97]"
     >
       {/* Grows and thickens on hover, the same answer the filter triggers give.
           Arrow and label scale together from the left edge so they keep their

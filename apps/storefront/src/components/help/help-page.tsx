@@ -20,8 +20,11 @@ export function HelpPage({
   return (
     <div className="mx-auto flex w-full max-w-[68ch] flex-col gap-8 px-4 py-8 md:px-8 md:py-12">
       <header className="flex flex-col gap-3">
-        <nav aria-label="Пътека">
-          <Link href="/" className="font-body text-body text-muted-text hover:underline">
+        <nav aria-label="Пътека" className="-my-2">
+          <Link
+            href="/"
+            className="block w-fit py-2 font-body text-body text-muted-text hover:underline"
+          >
             Начало
           </Link>
         </nav>

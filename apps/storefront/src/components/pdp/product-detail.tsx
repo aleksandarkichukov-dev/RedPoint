@@ -189,13 +189,18 @@ export function ProductDetail({
           )}
 
           <fieldset className="flex flex-col gap-3">
-            <div className="flex items-baseline justify-between gap-4">
+            {/* -my-2 pulls the row back to where it sat before the button grew
+                its padding, so the size grid does not drift down the page. */}
+            <div className="-my-2 flex items-baseline justify-between gap-4">
               <legend className="font-body text-nav text-primary">Размер</legend>
               {sizeChart.length > 0 && (
                 <button
                   type="button"
                   onClick={() => setChartOpen(true)}
-                  className="font-body text-nav lowercase text-primary underline underline-offset-4"
+                  /* 20px tall before, and it is the thing somebody reaches for
+                     with a garment in the other hand, mid-decision about a
+                     size. Padded to 36. */
+                  className="py-2 font-body text-nav lowercase text-primary underline underline-offset-4"
                 >
                   виж таблицата с размери
                 </button>

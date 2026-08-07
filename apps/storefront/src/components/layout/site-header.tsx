@@ -104,7 +104,10 @@ export function SiteHeader({ overlay = false }: SiteHeaderProps) {
           <Link
             href="/"
             aria-label="Red Point, начална страница"
-            className="mr-auto md:absolute md:left-1/2 md:mr-0 md:-translate-x-1/2"
+            /* py-2.5 makes the wordmark a 44px target instead of a 25px one.
+               The negative margin keeps the bar the height it was — the
+               padding is there for the thumb, not for the layout. */
+            className="-my-2.5 mr-auto py-2.5 md:absolute md:left-1/2 md:mr-0 md:-translate-x-1/2"
           >
             {/* No disc while the bar is transparent — see Wordmark.
                 Smaller on phones: the bar carries a menu button and three

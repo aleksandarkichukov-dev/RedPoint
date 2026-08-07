@@ -72,10 +72,23 @@ function FooterColumn({
   return (
     <div className="flex flex-col gap-3">
       <span className="font-headline text-subhead font-bold text-white uppercase">{title}</span>
-      <ul className="flex flex-col gap-2">
+      {/* The padding is the tap target, not decoration. These were 16px tall
+          with 8px between them — a thumb covers all three. The link is a block
+          with the spacing moved inside it, so each row is 32px to a finger
+          while the text sits where it always did and the column grows by a few
+          pixels rather than a few centimetres.
+
+          Padding rather than the usual trick of stretching the hit area with a
+          pseudo-element: at this spacing that would make adjacent targets
+          overlap, and two overlapping targets are worse than one small one —
+          you cannot reliably hit either. */}
+      <ul className="flex flex-col">
         {links.map((link) => (
           <li key={link.href}>
-            <Link href={link.href} className="font-body text-body text-white/70 hover:text-white">
+            <Link
+              href={link.href}
+              className="block py-2 font-body text-body text-white/70 hover:text-white"
+            >
               {link.label}
             </Link>
           </li>
