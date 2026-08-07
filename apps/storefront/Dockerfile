@@ -40,10 +40,23 @@ COPY apps/storefront apps/storefront
 RUN pnpm --filter @redpoint/catalog build
 
 # No build arguments for the backend address or the publishable key. Both are
-# read at run time now (MEDUSA_BACKEND_URL, MEDUSA_PUBLISHABLE_KEY), which is
-# what keeps this image portable: the key changes when the production database
-# is seeded, and baking it in would turn that into a rebuild on a server that
+# read at run time (MEDUSA_BACKEND_URL, MEDUSA_PUBLISHABLE_KEY), which is what
+# keeps this image portable: the key changes when the production database is
+# seeded, and baking it in would turn that into a rebuild on a server that
 # cannot build. See the note in src/lib/medusa.ts.
+#
+# SITE_URL is the exception, and not by choice. Next reads next.config.ts when
+# it builds, so the list of hosts it will optimise images from is fixed in the
+# bundle — a runtime value cannot reach it. Without this the shop serves every
+# product photograph as a 400 while the same file downloads fine from /static,
+# which is how the first deploy went.
+#
+# It does tie the image to one domain. That is the smaller cost: rebuilds
+# happen off the server anyway, and the alternative is allowing the optimiser
+# to fetch from any host at all.
+ARG SITE_URL
+ENV SITE_URL=$SITE_URL
+
 RUN pnpm --filter @redpoint/storefront build
 
 # --- runtime ----------------------------------------------------------------

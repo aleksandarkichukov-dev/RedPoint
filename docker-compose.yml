@@ -147,6 +147,10 @@ services:
     build:
       context: .
       dockerfile: apps/storefront/Dockerfile
+      args:
+        # Build-time only, and only for the image optimiser host list — see
+        # the note in the Dockerfile.
+        SITE_URL: ${SITE_URL:-https://redpointbg.com}
     container_name: redpoint-storefront
     restart: unless-stopped
     depends_on:
