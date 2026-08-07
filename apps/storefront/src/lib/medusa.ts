@@ -6,9 +6,33 @@
  * would add a dependency and take that control away for no gain here.
  */
 
+/**
+ * The un-prefixed names first, the NEXT_PUBLIC_ ones after.
+ *
+ * Neither of these is read in the browser — every call to Medusa from this
+ * storefront happens on the server, and the one component that needed a
+ * courier's office list goes through /api/offices rather than reaching past
+ * that. So the NEXT_PUBLIC_ prefix bought nothing and cost something: Next
+ * inlines a NEXT_PUBLIC_ variable into the bundle at BUILD time, which makes
+ * the Docker image specific to one backend address and one publishable key.
+ *
+ * The publishable key is exactly the thing that changes at go-live — the
+ * production database is seeded fresh and prints a new one — and baking it in
+ * turns that from a restart into a rebuild, on a 2 GB server where building is
+ * the one thing we cannot do.
+ *
+ * Both names are read so that existing .env files keep working. The runtime
+ * one wins when set.
+ */
 const BACKEND_URL =
-  process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL ?? "http://localhost:9000";
-const PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY ?? "";
+  process.env.MEDUSA_BACKEND_URL ??
+  process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL ??
+  "http://localhost:9000";
+
+const PUBLISHABLE_KEY =
+  process.env.MEDUSA_PUBLISHABLE_KEY ??
+  process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY ??
+  "";
 
 /** How long a catalogue read stays fresh. The client edits the catalogue daily
  *  through the bulk module, so this is short enough to feel live and long

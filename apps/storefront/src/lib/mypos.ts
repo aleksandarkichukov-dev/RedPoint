@@ -6,8 +6,11 @@
  * comes back. Nothing here can forge a payment request.
  */
 
+/* Runtime name first — see the note in lib/medusa.ts. */
 const BACKEND_URL =
-  process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL ?? "http://localhost:9000";
+  process.env.MEDUSA_BACKEND_URL ??
+  process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL ??
+  "http://localhost:9000";
 
 export interface MyposPurchase {
   url: string;

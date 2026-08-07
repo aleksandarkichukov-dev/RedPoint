@@ -18,9 +18,23 @@ services:
     image: postgres:17-alpine
     container_name: redpoint-postgres
     restart: unless-stopped
-    # Medusa opens a pool per module and briefly exceeds the default 100 during
-    # `db:migrate`, which fails with "too many connections" (SQLSTATE 53300).
-    command: postgres -c max_connections=300
+    # max_connections: Medusa opens a pool per module and briefly exceeds the
+    #   default 100 during `db:migrate`, which fails with "too many
+    #   connections" (SQLSTATE 53300).
+    # shared_buffers: 128 MB rather than the default 128 MB — the same number,
+    #   written down so that nobody "tunes" it upward on a 2 GB box. The usual
+    #   advice is a quarter of RAM, which here would be 512 MB taken from a
+    #   machine where Medusa alone wants 750 MB. This database is 55 MB and
+    #   fits in the cache several times over.
+    # work_mem: small on purpose. It is allocated PER SORT, not per server, so
+    #   300 possible connections times a generous work_mem is how a 2 GB box
+    #   runs out of memory while the queries all look reasonable.
+    command: >
+      postgres
+      -c max_connections=300
+      -c shared_buffers=128MB
+      -c work_mem=4MB
+      -c maintenance_work_mem=64MB
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-redpoint}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
@@ -65,23 +79,125 @@ services:
         condition: service_healthy
     environment:
       NODE_ENV: production
+      # Medusa is ~750 MB resident PER PROCESS. The brief calls for a separate
+      # API container and worker container, which on this 2 GB VPS would need
+      # ~1.9 GB before Next, Postgres and Redis have started. One process does
+      # both. The cost is that a long background job — a photo import — blocks
+      # responses while it runs, which is why the import reads from disk rather
+      # than holding the archive in memory.
+      MEDUSA_WORKER_MODE: shared
+      # A ceiling Node will respect. Without it Node sizes its heap from the
+      # machine's total memory and happily grows past what is actually free,
+      # and the kernel kills it — which reads as the backend vanishing with no
+      # error anywhere. 900 MB leaves room for Next, Postgres, Redis and the OS.
+      NODE_OPTIONS: --max-old-space-size=900
       DATABASE_URL: postgres://${POSTGRES_USER:-redpoint}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-redpoint}
       REDIS_URL: redis://redis:6379
       MEDUSA_BACKEND_URL: ${MEDUSA_BACKEND_URL:-http://localhost:9000}
-      MEDUSA_WORKER_MODE: ${MEDUSA_WORKER_MODE:-shared}
       STORE_CORS: ${STORE_CORS}
       ADMIN_CORS: ${ADMIN_CORS}
       AUTH_CORS: ${AUTH_CORS}
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
       COOKIE_SECRET: ${COOKIE_SECRET:?set COOKIE_SECRET in .env}
+      # Email. With neither set the backend writes messages to the log instead
+      # of sending them and says so at boot; with one set it warns. See
+      # medusa-config.ts.
+      SENDGRID_API_KEY: ${SENDGRID_API_KEY:-}
+      SENDGRID_FROM: ${SENDGRID_FROM:-}
+      STOREFRONT_URL: ${STOREFRONT_URL:-}
+      # Couriers and payment. Passed through rather than defaulted, so a
+      # missing one fails where it is used with the provider's own message
+      # rather than silently behaving like a different shop.
+      SPEEDY_USERNAME: ${SPEEDY_USERNAME:-}
+      SPEEDY_PASSWORD: ${SPEEDY_PASSWORD:-}
+      SPEEDY_CLIENT_NUMBER: ${SPEEDY_CLIENT_NUMBER:-}
+      ECONT_USERNAME: ${ECONT_USERNAME:-}
+      ECONT_PASSWORD: ${ECONT_PASSWORD:-}
+      ECONT_SHOP_ID: ${ECONT_SHOP_ID:-}
+      COURIERS_SANDBOX: ${COURIERS_SANDBOX:-true}
+      MYPOS_SID: ${MYPOS_SID:-}
+      MYPOS_WALLET: ${MYPOS_WALLET:-}
+      MYPOS_KEY_INDEX: ${MYPOS_KEY_INDEX:-}
+      MYPOS_SANDBOX: ${MYPOS_SANDBOX:-true}
     ports:
       - "9000:9000"
     volumes:
-      # Product photography served by the local file provider. Swap for object
-      # storage in Phase 9 if the VPS gets any.
-      - backend-static:/app/apps/backend/static
+      # Product photography served by the local file provider. The path is the
+      # WORKDIR of the image plus `static`, and that is not a detail: the
+      # provider resolves `upload_dir` against the working directory, which is
+      # the build output at .medusa/server rather than apps/backend. Mounted a
+      # directory too high, uploads land in the container's own layer instead —
+      # the volume stays empty, the shop's photographs vanish on the next
+      # restart, and until then everything looks like it works.
+      - backend-static:/app/apps/backend/.medusa/server/static
+      # The myPOS private key and certificate. Read-only, and mounted rather
+      # than baked in: .dockerignore keeps them out of the image on purpose,
+      # because a secret in a layer survives every later deletion. A multi-line
+      # PEM escaped into an environment variable fails as a bad signature with
+      # nothing useful in the message, which is why these stay files.
+      - ./apps/backend/secrets:/app/apps/backend/.medusa/server/secrets:ro
+
+  storefront:
+    profiles: ["full"]
+    build:
+      context: .
+      dockerfile: apps/storefront/Dockerfile
+    container_name: redpoint-storefront
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      NODE_ENV: production
+      # Inside the compose network, so the shop talks to Medusa directly rather
+      # than back out through nginx and in again.
+      MEDUSA_BACKEND_URL: http://backend:9000
+      # Printed by the seed. Read at run time, so replacing it after the
+      # production database is seeded is a restart rather than a rebuild —
+      # which matters because this server cannot build.
+      MEDUSA_PUBLISHABLE_KEY: ${MEDUSA_PUBLISHABLE_KEY:?printed by the seed}
+      # Next is ~150 MB and has no reason to grow; the cap is here so that if it
+      # ever does, it fails visibly rather than by pushing Medusa out of memory.
+      NODE_OPTIONS: --max-old-space-size=400
+    # Not published on the VPS — nginx is the only way in. Kept for a laptop.
+    ports:
+      - "3000:3000"
+
+  nginx:
+    profiles: ["full"]
+    image: nginx:1.27-alpine
+    container_name: redpoint-nginx
+    restart: unless-stopped
+    depends_on:
+      - storefront
+      - backend
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/nginx:/etc/nginx/conf.d:ro
+      - letsencrypt:/etc/letsencrypt:ro
+      - certbot-webroot:/var/www/certbot:ro
+
+  # Renewal only. The first certificate is issued by hand, once, because it is
+  # the step that fails when DNS has not propagated and a container looping on
+  # that failure gets the domain rate-limited by Let's Encrypt for a week.
+  #   docs/deploy.md has the one-off command.
+  certbot:
+    profiles: ["full"]
+    image: certbot/certbot:latest
+    container_name: redpoint-certbot
+    restart: unless-stopped
+    volumes:
+      - letsencrypt:/etc/letsencrypt
+      - certbot-webroot:/var/www/certbot
+    entrypoint: >
+      sh -c "trap exit TERM;
+      while :; do certbot renew --webroot -w /var/www/certbot --quiet;
+      sleep 12h & wait $${!}; done"
 
 volumes:
   postgres-data:
   redis-data:
   backend-static:
+  letsencrypt:
+  certbot-webroot:

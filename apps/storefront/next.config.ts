@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { join } from "node:path";
 import { CATEGORY_REDIRECTS, PRODUCT_REDIRECTS } from "./src/lib/old-urls.generated";
 
 /**
@@ -46,6 +47,17 @@ function oldUrlRedirects() {
 }
 
 const nextConfig: NextConfig = {
+  /* A self-contained server plus only the files it actually imports, instead of
+     the whole workspace and its node_modules. The runtime image drops from
+     something over a gigabyte to a couple of hundred megabytes, which matters
+     on a 60 GB disk shared with product photography and database backups.
+
+     `outputFileTracingRoot` is required in a pnpm workspace: without it Next
+     traces from apps/storefront and misses the hoisted node_modules at the
+     repo root, producing an image that builds cleanly and then cannot start. */
+  output: "standalone",
+  outputFileTracingRoot: join(import.meta.dirname, "../.."),
+
   async redirects() {
     return oldUrlRedirects();
   },
