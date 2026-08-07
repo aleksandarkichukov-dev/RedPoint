@@ -76,6 +76,31 @@ export async function setShippingMethod(
   });
 }
 
+/**
+ * Records how the shopper meant to pay, on the cart.
+ *
+ * Both routes create the order identically — the same provider, the same
+ * unpaid payment — and until now the only difference between them was which
+ * page the browser was sent to next. Nothing on the order said which it was.
+ *
+ * That is what made an abandoned card payment indistinguishable from an
+ * ordinary cash-on-delivery order: both sit unpaid, and one is waiting for a
+ * courier while the other is waiting for nobody. The shop cannot chase the
+ * second without also pestering the first.
+ *
+ * On the cart rather than the order, because a storefront may not write to an
+ * order — and Medusa copies the cart's metadata onto the order when it
+ * completes (`complete-cart`, where the order is built from `cart.metadata`).
+ */
+export async function setPaymentIntent(
+  cartId: string,
+  intent: "card" | "cod",
+): Promise<void> {
+  await medusaMutate(`/store/carts/${cartId}`, {
+    body: { metadata: { payment_intent: intent } },
+  });
+}
+
 export async function setContactAndAddress(
   cartId: string,
   email: string,

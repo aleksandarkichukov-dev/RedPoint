@@ -8,6 +8,7 @@ import {
   completeCart,
   initPaymentSession,
   setContactAndAddress,
+  setPaymentIntent,
   setShippingMethod,
 } from "@/lib/checkout";
 
@@ -96,6 +97,11 @@ export async function placeOrderAction(
       officeName: value("officeName"),
     });
     await initPaymentSession(cartId, COD_PROVIDER);
+
+    /* Before completing, so it rides onto the order. Afterwards would be too
+       late: a storefront cannot write to an order, and the order is the only
+       thing left once the cart is spent. */
+    await setPaymentIntent(cartId, payWithCard ? "card" : "cod");
 
     const order = await completeCart(cartId);
     orderId = order.id;
