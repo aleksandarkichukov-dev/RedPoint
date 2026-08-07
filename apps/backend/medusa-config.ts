@@ -53,6 +53,48 @@ const redisModules = REDIS_URL
     ]
   : [];
 
+/**
+ * Who actually sends the email.
+ *
+ * SendGrid needs two things and refuses on either: a key, and a sender address
+ * it has been shown belongs to us. Both are the shop's to supply, so until
+ * they exist this stays on the local provider, which writes the message to the
+ * log — visible, and impossible to mistake for delivery.
+ *
+ * The address is required alongside the key rather than defaulted, because a
+ * plausible-looking default is the one thing worse than no address at all:
+ * SendGrid rejects an unverified sender, and the rejection arrives in a log
+ * nobody is reading while the shopper sees "изпратихме потвърждение".
+ */
+function emailProvider() {
+  const apiKey = process.env.SENDGRID_API_KEY;
+  const from = process.env.SENDGRID_FROM;
+
+  if (apiKey && from) {
+    return {
+      resolve: "@medusajs/medusa/notification-sendgrid",
+      id: "sendgrid",
+      options: { channels: ["email"], api_key: apiKey, from },
+    };
+  }
+
+  if (apiKey || from) {
+    /* Half-configured is a mistake, not a state. Saying so at boot costs a
+       line in the log; finding out from a customer who never got their
+       confirmation costs an order. */
+    console.warn(
+      "[notification] SENDGRID_API_KEY and SENDGRID_FROM must both be set. " +
+        "Email stays in the log until they are.",
+    );
+  }
+
+  return {
+    resolve: "@medusajs/medusa/notification-local",
+    id: "local",
+    options: { name: "Local Notification Provider", channels: ["email"] },
+  };
+}
+
 module.exports = defineConfig({
   projectConfig: {
     databaseUrl: process.env.DATABASE_URL,
@@ -91,23 +133,20 @@ module.exports = defineConfig({
     {
       /* Notifications.
 
-         The local provider writes the message to the log instead of sending
-         it, which is exactly what is wanted until the client says which
-         address the shop sends from — decision 8 in docs/client-requirements.
-         SendGrid is already installed; swapping to it is this block plus an
-         API key, and no change to the subscriber or the templates. */
+         SendGrid the moment a key exists, the log otherwise. The switch is on
+         the key rather than on a separate flag because a half-configured mail
+         setup is the failure nobody sees: the shop shows "изпратихме
+         потвърждение", the log says the email was queued, and nothing arrives.
+         With no key there is no ambiguity — it is the local provider and it
+         says so at boot.
+
+         Neither the subscriber nor the templates change between the two. The
+         SendGrid provider uses `content.subject` and `content.html` whenever a
+         notification carries content, and only falls back to a SendGrid-hosted
+         template when it does not. Ours always carries content. */
       resolve: "@medusajs/medusa/notification",
       options: {
-        providers: [
-          {
-            resolve: "@medusajs/medusa/notification-local",
-            id: "local",
-            options: {
-              name: "Local Notification Provider",
-              channels: ["email"],
-            },
-          },
-        ],
+        providers: [emailProvider()],
       },
     },
     ...redisModules,
