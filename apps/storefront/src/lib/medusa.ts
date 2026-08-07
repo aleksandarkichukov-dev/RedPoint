@@ -34,6 +34,18 @@ const PUBLISHABLE_KEY =
   process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY ??
   "";
 
+/* Said once, at boot, rather than left to be deduced from an empty shop.
+   Without the key every catalogue read answers 401 and every page renders
+   correctly with nothing in it — the failure this project has hit more than
+   once, and the one that looks least like a failure. */
+if (!PUBLISHABLE_KEY) {
+  console.error(
+    "[medusa] MEDUSA_PUBLISHABLE_KEY is empty. Every catalogue read will be " +
+      "refused and the shop will render empty with no error. The seed prints " +
+      "the key; put it in .env and restart.",
+  );
+}
+
 /** How long a catalogue read stays fresh. The client edits the catalogue daily
  *  through the bulk module, so this is short enough to feel live and long
  *  enough that a listing page is not a database query per visitor. */

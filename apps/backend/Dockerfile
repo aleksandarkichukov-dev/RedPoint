@@ -20,7 +20,17 @@ COPY apps/backend/package.json apps/backend/
 COPY packages/catalog/package.json packages/catalog/
 # --network-concurrency is not tuning: npmjs.org 429s this dependency tree at
 # pnpm's default of 16, and the whole install fails. 4 gets through.
-RUN pnpm install --frozen-lockfile --network-concurrency=4 \
+#
+# --trust-lockfile skips re-applying the supply-chain policy to each of the
+# 1243 lockfile entries — one registry request each, which npmjs.org rate-limits
+# long before the end. The policy still runs where there is something new to
+# judge: on a developer's machine, when a dependency is added or updated and the
+# lockfile is rewritten. Inside the image the lockfile is the committed one,
+# unchanged, and already installed from daily.
+#
+# The shop's decision, taken on 2026-08-07 for the storefront image and applied
+# here for the same reason — same repository, same lockfile.
+RUN pnpm install --frozen-lockfile --network-concurrency=4 --trust-lockfile \
       --filter @redpoint/backend... --prod=false
 
 # --- build ------------------------------------------------------------------

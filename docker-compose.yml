@@ -159,7 +159,13 @@ services:
       # Printed by the seed. Read at run time, so replacing it after the
       # production database is seeded is a restart rather than a rebuild —
       # which matters because this server cannot build.
-      MEDUSA_PUBLISHABLE_KEY: ${MEDUSA_PUBLISHABLE_KEY:?printed by the seed}
+      #
+      # Not `:?`. Compose interpolates the whole file before starting anything,
+      # so a required variable here stopped `docker compose up postgres` too —
+      # and the key comes from a seed that needs postgres running. That circle
+      # cost the first deploy ten minutes. The storefront says so itself at
+      # boot instead, which is where it can say something useful.
+      MEDUSA_PUBLISHABLE_KEY: ${MEDUSA_PUBLISHABLE_KEY:-}
       SITE_URL: ${SITE_URL:-https://redpointbg.com}
       # The storefront only needs to know WHETHER Google is configured, to
       # decide whether to show the button. The secret stays on the backend.
