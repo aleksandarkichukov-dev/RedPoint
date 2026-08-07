@@ -7,6 +7,13 @@
       "runtimeArgs": ["--filter", "@redpoint/storefront", "dev"],
       "port": 3000,
       "autoPort": false
+    },
+    {
+      "name": "backend",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@redpoint/backend", "dev"],
+      "port": 9000,
+      "autoPort": false
     }
   ]
 }

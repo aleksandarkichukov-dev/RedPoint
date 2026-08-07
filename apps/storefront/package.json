@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "check:redirects": "node scripts/check-redirects.mts"
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.7",
