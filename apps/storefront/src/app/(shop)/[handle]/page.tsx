@@ -8,7 +8,7 @@ import {
   getCategoryByHandle,
   getRegionId,
   listCategories,
-  listProducts,
+  listAllProducts,
 } from "@/lib/catalog";
 import {
   applyPlpQuery,
@@ -21,8 +21,6 @@ import {
 } from "@/lib/plp";
 
 const PAGE_SIZE = 24;
-/** One request covers a category at this catalogue size; see lib/plp.ts. */
-const FETCH_LIMIT = 100;
 
 type PageProps = {
   params: Promise<{ handle: string }>;
@@ -51,11 +49,15 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
 
   /* The subtree, not the category alone. Grouping levels carry no products of
      their own, so asking for one by itself renders an empty listing under a
-     perfectly valid heading. */
-  const { products: fetched } = await listProducts({
+     perfectly valid heading.
+
+     Walked in pages rather than capped at a hundred. The filters and the size
+     and colour facets are all computed from what comes back, so a cap does not
+     merely shorten the listing — it decides which colours the shopper is
+     offered, and a colour nobody can filter by is a colour nobody buys. */
+  const fetched = await listAllProducts({
     regionId,
     categoryId: categorySubtreeIds(category.id, allCategories),
-    limit: FETCH_LIMIT,
   });
 
   const filtered = applyPlpQuery(fetched, query);

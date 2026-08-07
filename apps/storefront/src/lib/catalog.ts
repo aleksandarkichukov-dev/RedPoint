@@ -108,6 +108,59 @@ export async function listProducts(options: {
   });
 }
 
+/**
+ * How many products one request asks for while walking the catalogue.
+ *
+ * Overridable so the check script can force several pages out of a small
+ * catalogue — with one page the walk is never exercised and the test proves
+ * only that a single request works, which is what it did before.
+ */
+const PAGE_SIZE = Number(process.env.CATALOGUE_PAGE_SIZE) || 200;
+
+/**
+ * Somewhere to stop if `count` and the returned rows ever disagree.
+ *
+ * Not a catalogue limit — it is far above any plausible one. It exists so a
+ * bug upstream costs a slow page rather than a server that fetches for ever.
+ */
+const CEILING = 10_000;
+
+/**
+ * Every product, or every product in a category. Not the first hundred.
+ *
+ * The four surfaces that need the whole catalogue — search, the chat, the
+ * sitemap and a category listing — each asked for `limit: 100` and took what
+ * came back. At 88 products that was the whole shop and looked correct. At 101
+ * it silently stops being: the search cannot find the newest dress, the chat
+ * says an article does not exist while it sits in the shop, and Google is told
+ * the catalogue ends at a hundred.
+ *
+ * Nothing errors in any of those cases, which is what makes it worth a
+ * function rather than a bigger number. A bigger number is the same bug with a
+ * later start date.
+ */
+export async function listAllProducts(options: {
+  regionId: string;
+  categoryId?: string | string[];
+  order?: string;
+}): Promise<StoreProduct[]> {
+  const all: StoreProduct[] = [];
+  let offset = 0;
+
+  while (offset < CEILING) {
+    const page = await listProducts({ ...options, limit: PAGE_SIZE, offset });
+    all.push(...page.products);
+
+    /* Stop on a short page as well as on the count, because those are two
+       different ways of being finished and trusting only one of them is how a
+       loop either ends early or never ends. */
+    if (page.products.length === 0 || all.length >= page.count) break;
+    offset += page.products.length;
+  }
+
+  return all;
+}
+
 export async function getProductByHandle(
   handle: string,
   regionId: string,
@@ -152,7 +205,11 @@ export async function listCategories(): Promise<StoreCategory[]> {
   const { product_categories } = await medusaFetch<{
     product_categories: StoreCategory[];
   }>("/store/product-categories", {
-    limit: 100,
+    /* The tree is 27 deep today and is a shape somebody designs, not something
+       that accumulates — so one request is honest here in a way it was not for
+       products. Well clear of the ceiling, and named so it does not read as
+       another quiet hundred. */
+    limit: 500,
     fields: "id,name,handle,parent_category_id",
   });
   return product_categories;

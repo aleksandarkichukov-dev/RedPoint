@@ -6,7 +6,7 @@ import {
   displayPrice,
   getRegionId,
   listCategories,
-  listProducts,
+  listAllProducts,
   productHref,
   toColorOptions,
   type StoreProduct,
@@ -84,7 +84,10 @@ export async function search(query: string): Promise<SearchResults> {
   if (typed.length < 2) return EMPTY;
 
   const regionId = await getRegionId();
-  const { products } = await listProducts({ regionId, limit: 100 });
+  /* The whole catalogue. Ranking happens here in memory, so anything not
+     fetched is not merely ranked low — it does not exist as far as the search
+     box is concerned, and the shopper is told there is no such thing. */
+  const products = await listAllProducts({ regionId });
 
   /* An article number is an exact question and gets an exact answer. Somebody
      holding a label does not want the six garments that rank near it. */

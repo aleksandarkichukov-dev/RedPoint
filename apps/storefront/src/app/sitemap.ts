@@ -1,5 +1,5 @@
 import type { MetadataRoute } from "next";
-import { getRegionId, listCategories, listProducts, productHref } from "@/lib/catalog";
+import { getRegionId, listAllProducts, listCategories, productHref } from "@/lib/catalog";
 import { absolute } from "@/lib/site";
 
 /**
@@ -28,9 +28,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   try {
     const regionId = await getRegionId();
-    const [categories, { products }] = await Promise.all([
+    /* Every product, walked in pages. It used to ask for a hundred, which was
+       the whole catalogue when this was written and quietly stopped being one
+       — a sitemap that lists a hundred of four hundred products tells Google
+       the shop is smaller than it is, and says nothing while doing it. */
+    const [categories, products] = await Promise.all([
       listCategories(),
-      listProducts({ regionId, limit: 100 }),
+      listAllProducts({ regionId }),
     ]);
 
     /* Leaves only. A parent category renders the same products as its children

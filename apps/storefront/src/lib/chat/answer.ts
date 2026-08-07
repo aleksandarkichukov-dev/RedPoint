@@ -4,7 +4,7 @@ import { detectIntent, rank } from "@redpoint/catalog";
 import { medusaFetch, medusaMutate } from "@/lib/medusa";
 import {
   getRegionId,
-  listProducts,
+  listAllProducts,
   productHref,
   cardTitle,
   toColorOptions,
@@ -102,11 +102,11 @@ function matchFaq(entries: FaqEntry[], query: string): FaqEntry | null {
 /** Every product, once, cached like the rest of the catalogue. */
 async function catalogue(): Promise<StoreProduct[]> {
   const regionId = await getRegionId();
-  /* One page covers the shop. If the catalogue ever outgrows this the search
-     has to move to the database, and the number is here so that shows up as a
-     decision rather than as a bot that quietly stops finding new arrivals. */
-  const { products } = await listProducts({ regionId, limit: 100 });
-  return products;
+  /* Walked in pages. This used to take one page of a hundred and say in a
+     comment that the shop would outgrow it one day — which it was three
+     articles away from doing, and the outgrowing would have looked like a bot
+     that answers "нямам такъв артикул" about something on the shelf. */
+  return listAllProducts({ regionId });
 }
 
 function toChatProduct(product: StoreProduct): ChatProduct {
