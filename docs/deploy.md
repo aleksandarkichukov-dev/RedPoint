@@ -56,14 +56,22 @@ ufw allow OpenSSH && ufw allow 80 && ufw allow 443 && ufw enable
 
 ### 2. DNS
 
-Point `red-point.bg` and `www.red-point.bg` at the server's IP. Wait until
-`dig +short red-point.bg` answers with it before going near certbot — a
+Point `redpointbg.com`, `www.redpointbg.com` AND the old `red-point.bg` at the server's IP. Wait until
+`dig +short redpointbg.com` answers with it before going near certbot — a
 certificate request against un-propagated DNS fails, and enough failures get
 the domain rate-limited by Let's Encrypt for a week.
 
 **This is the step that takes the old shop down.** Until it is done, the old
 site keeps serving. Do it last, and only when everything below has been tested
 on a temporary subdomain.
+
+**Pointing red-point.bg here is not optional.** The shop is moving to a new
+domain, so the 301 map is only half the job: those rules match on path and can
+only fire for requests that arrive at this server. If the old domain keeps
+pointing at the old host — or at nothing — then every link, bookmark and search
+result made since 2014 goes somewhere else, and ten years of authority is spent
+on a dead address. nginx has a block for it that forwards to the new domain
+with the path intact, which the Next rules then translate.
 
 ### 3. The code and the secrets
 
@@ -136,7 +144,7 @@ issuing the certificate standalone first:
 ```bash
 docker compose --profile full run --rm -p 80:80 \
   -v letsencrypt:/etc/letsencrypt certbot \
-  certonly --standalone -d red-point.bg -d www.red-point.bg \
+  certonly --standalone -d redpointbg.com -d www.redpointbg.com -d red-point.bg -d www.red-point.bg \
   --agree-tos -m <email> --no-eff-email
 ```
 
@@ -190,9 +198,13 @@ docker compose --profile full up -d
 
 ## What is not done
 
-- **No legal pages.** A Bulgarian shop needs Общи условия, Поверителност and a
-  cookie notice before it takes orders. That is the client's or a lawyer's, not
-  this repo's.
+- **The legal pages are the OLD shop's, and describe a shop this is not.**
+  They were copied verbatim from red-point.bg on the client's instruction. Four
+  contradictions are listed at the top of `src/lib/legal.ts`: they require
+  registration where this shop has guest checkout, they name cash on delivery
+  as the only payment method, they say returns must be carried into a Varna
+  shop in person, and they link to a GDPR request page that belongs to the old
+  system. A lawyer has to read them before the shop takes a real order.
 - **Card payment has never taken a payment.** Cash on delivery works end to
   end. The myPOS notification path can only be exercised once there is a public
   address, which is this deployment.

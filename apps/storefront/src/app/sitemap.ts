@@ -24,6 +24,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: absolute("/help/returns"), changeFrequency: "yearly", priority: 0.3 },
     { url: absolute("/help/sizes"), changeFrequency: "yearly", priority: 0.3 },
     { url: absolute("/help/contact"), changeFrequency: "monthly", priority: 0.5 },
+    /* Listed, at the lowest priority. Nobody searches for a cookie policy, but
+       a shop whose terms cannot be found reads as a shop with something to
+       hide — to a person deciding whether to enter a card number, and to the
+       search engines that weigh exactly that. */
+    { url: absolute("/legal/terms"), changeFrequency: "yearly", priority: 0.2 },
+    { url: absolute("/legal/privacy"), changeFrequency: "yearly", priority: 0.2 },
+    { url: absolute("/legal/cookies"), changeFrequency: "yearly", priority: 0.2 },
   ];
 
   try {
