@@ -3,7 +3,7 @@ import Link from "next/link";
 import { HelpPage, HelpSection, HelpText } from "@/components/help/help-page";
 
 export const metadata: Metadata = {
-  title: "Таблица с размери · Red Point",
+  title: "Таблица с размери",
   description: "Как да мерите и как да четете таблицата с размери на всеки артикул.",
 };
 

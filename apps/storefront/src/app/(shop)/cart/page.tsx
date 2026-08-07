@@ -6,7 +6,7 @@ import { getCart } from "@/lib/cart";
 import { formatBgn, formatEur } from "@/lib/price";
 
 export const metadata: Metadata = {
-  title: "Количка · Red Point",
+  title: "Количка",
   robots: { index: false },
 };
 

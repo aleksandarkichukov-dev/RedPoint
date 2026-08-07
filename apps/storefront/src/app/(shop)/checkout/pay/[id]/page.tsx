@@ -5,7 +5,7 @@ import { MyposRedirect } from "@/components/checkout/mypos-redirect";
 import { buildMyposPurchase } from "@/lib/mypos";
 
 export const metadata: Metadata = {
-  title: "Прехвърляме ви към плащането · Red Point",
+  title: "Прехвърляме ви към плащането",
   robots: { index: false },
 };
 

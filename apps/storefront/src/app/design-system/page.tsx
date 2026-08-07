@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { ProductCard } from "@/components/ui/product-card";
 
 export const metadata: Metadata = {
-  title: "Дизайн система · Red Point",
+  title: "Дизайн система",
   robots: { index: false, follow: false },
 };
 

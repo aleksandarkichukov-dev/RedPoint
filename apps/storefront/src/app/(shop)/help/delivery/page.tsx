@@ -4,7 +4,7 @@ import { HelpPage, HelpSection, HelpText } from "@/components/help/help-page";
 import { formatBgn, formatEur } from "@/lib/price";
 
 export const metadata: Metadata = {
-  title: "Доставка · Red Point",
+  title: "Доставка",
   description: "Доставка със Спиди и Еконт до офис или адрес в цяла България.",
 };
 

@@ -7,7 +7,7 @@ import { getSelectedShippingOptionId, listShippingOptions } from "@/lib/checkout
 import { formatBgn, formatEur } from "@/lib/price";
 
 export const metadata: Metadata = {
-  title: "Поръчка · Red Point",
+  title: "Поръчка",
   robots: { index: false },
 };
 

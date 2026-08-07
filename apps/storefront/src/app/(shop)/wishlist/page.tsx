@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { WishlistGrid } from "@/components/wishlist/wishlist-grid";
 
 export const metadata: Metadata = {
-  title: "Любими · Red Point",
+  title: "Любими",
   /* Nothing here is the shop's own content — it is one shopper's list, and
      indexing it would put an empty page in the results under our name. */
   robots: { index: false, follow: false },

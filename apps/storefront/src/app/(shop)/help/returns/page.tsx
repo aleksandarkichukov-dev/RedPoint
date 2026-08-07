@@ -3,7 +3,7 @@ import Link from "next/link";
 import { HelpPage, HelpSection, HelpText } from "@/components/help/help-page";
 
 export const metadata: Metadata = {
-  title: "Връщане и замяна · Red Point",
+  title: "Връщане и замяна",
   description: "Връщане до 14 дни. Замяна на размер в трите магазина във Варна.",
 };
 

@@ -4,7 +4,7 @@ import { HelpPage, HelpSection, HelpText } from "@/components/help/help-page";
 import { STORES } from "@/lib/home";
 
 export const metadata: Metadata = {
-  title: "Контакти · Red Point",
+  title: "Контакти",
   description: "Трите магазина на Red Point във Варна — адреси, телефони и работно време.",
 };
 

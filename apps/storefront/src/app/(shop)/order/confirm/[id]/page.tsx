@@ -3,7 +3,7 @@ import Link from "next/link";
 import { buttonClasses } from "@/components/ui/button";
 
 export const metadata: Metadata = {
-  title: "Плащането е прието · Red Point",
+  title: "Плащането е прието",
   robots: { index: false },
 };
 
