@@ -191,11 +191,19 @@ re-entered on the server:
 - **Anything uploaded through the bulk module is lost.** The seed reads
   `seed/products.json`, so the scraped catalogue comes back — but a product the
   client added through the daily upload screen exists only in the database. If
-  they start loading stock before go-live, export it first, or that work is
-  gone.
+  they start loading stock before go-live, press **Свали каталога** on the bulk
+  screen first and upload that file again afterwards, or that work is gone.
 
 The last one is the trap. It looks like a routine redeploy and costs a week of
 somebody's data entry.
+
+**A variant is identified by its colour and its size, never by its sku.** The
+import used to match on a sku it computed itself as `{article}-{colour}-{size}`;
+the scraped catalogue carries skus like `16891-27-chart:M`, so nothing ever
+matched and re-uploading the shop's own export would have added a second copy of
+all 801 variants and orphaned the originals. Silently — both halves report
+success. `check-bulk-export.ts` is what keeps it honest; run it after touching
+either half.
 
 ## Blocked on the client
 
