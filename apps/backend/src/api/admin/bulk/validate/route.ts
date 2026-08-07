@@ -3,6 +3,7 @@ import { ContainerRegistrationKeys } from "@medusajs/framework/utils";
 import { reviewUpload } from "../../../../modules/bulk/service";
 import { WorkbookError } from "../../../../modules/bulk/workbook";
 import { ArchiveError } from "../../../../modules/bulk/photos";
+import { cleanUploads, readUpload } from "../../../../modules/bulk/uploads";
 
 /**
  * Checks an upload and reports what importing it would do. Writes nothing.
@@ -12,16 +13,16 @@ import { ArchiveError } from "../../../../modules/bulk/photos";
  */
 export async function POST(req: MedusaRequest, res: MedusaResponse): Promise<void> {
   const query = req.scope.resolve(ContainerRegistrationKeys.QUERY);
-  const files = (req as unknown as { files?: Record<string, { buffer: Buffer }[]> }).files;
 
-  const sheet = files?.sheet?.[0]?.buffer;
+  const sheet = await readUpload(req, "sheet");
   if (!sheet) {
+    await cleanUploads(req);
     res.status(400).json({ message: "Прикачете .xlsx файл с артикулите." });
     return;
   }
 
   try {
-    const review = await reviewUpload(query, { sheet, photos: files?.photos?.[0]?.buffer });
+    const review = await reviewUpload(query, { sheet, photos: await readUpload(req, "photos") });
 
     res.json({
       issues: review.issues,
@@ -41,5 +42,9 @@ export async function POST(req: MedusaRequest, res: MedusaResponse): Promise<voi
     }
     req.scope.resolve(ContainerRegistrationKeys.LOGGER).error(`bulk validate failed: ${error}`);
     res.status(500).json({ message: "Файлът не можа да бъде обработен." });
+  } finally {
+    /* Whatever happened. A validation run is the one the shop repeats most,
+       so it is also the one that would fill the disk fastest. */
+    await cleanUploads(req);
   }
 }

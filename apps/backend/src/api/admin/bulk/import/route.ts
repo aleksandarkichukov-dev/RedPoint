@@ -4,6 +4,7 @@ import { reviewUpload } from "../../../../modules/bulk/service";
 import { WorkbookError } from "../../../../modules/bulk/workbook";
 import { ArchiveError } from "../../../../modules/bulk/photos";
 import { importBulkWorkflow } from "../../../../workflows/import-bulk";
+import { cleanUploads, readUpload } from "../../../../modules/bulk/uploads";
 
 /**
  * Applies an upload, all of it or none of it.
@@ -14,11 +15,21 @@ import { importBulkWorkflow } from "../../../../workflows/import-bulk";
  * can write.
  */
 export async function POST(req: MedusaRequest, res: MedusaResponse): Promise<void> {
+  /* Wrapped rather than cleaned up at each exit. This function has seven ways
+     out, and a cleanup added to six of them is a disk that fills up on the
+     seventh — the failure path, which is the one that repeats. */
+  try {
+    await handleImport(req, res);
+  } finally {
+    await cleanUploads(req);
+  }
+}
+
+async function handleImport(req: MedusaRequest, res: MedusaResponse): Promise<void> {
   const logger = req.scope.resolve(ContainerRegistrationKeys.LOGGER);
   const query = req.scope.resolve(ContainerRegistrationKeys.QUERY);
-  const files = (req as unknown as { files?: Record<string, { buffer: Buffer }[]> }).files;
 
-  const sheet = files?.sheet?.[0]?.buffer;
+  const sheet = await readUpload(req, "sheet");
   if (!sheet) {
     res.status(400).json({ message: "Прикачете .xlsx файл с артикулите." });
     return;
@@ -26,7 +37,7 @@ export async function POST(req: MedusaRequest, res: MedusaResponse): Promise<voi
 
   let review;
   try {
-    review = await reviewUpload(query, { sheet, photos: files?.photos?.[0]?.buffer });
+    review = await reviewUpload(query, { sheet, photos: await readUpload(req, "photos") });
   } catch (error) {
     if (error instanceof WorkbookError || error instanceof ArchiveError) {
       res.status(400).json({ message: error.message });

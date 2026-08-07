@@ -4,6 +4,7 @@ import { updateProductsWorkflow } from "@medusajs/medusa/core-flows";
 import { reviewPhotosOnly } from "../../../../modules/bulk/service";
 import { readPhotoArchive, ArchiveError } from "../../../../modules/bulk/photos";
 import { colorImages, productImages, storePhotos } from "../../../../modules/bulk/store-photos";
+import { cleanUploads, readUpload } from "../../../../modules/bulk/uploads";
 
 /**
  * Photographs on their own, with no spreadsheet.
@@ -16,11 +17,18 @@ import { colorImages, productImages, storePhotos } from "../../../../modules/bul
  * uses.
  */
 export async function POST(req: MedusaRequest, res: MedusaResponse): Promise<void> {
+  try {
+    await handlePhotos(req, res);
+  } finally {
+    await cleanUploads(req);
+  }
+}
+
+async function handlePhotos(req: MedusaRequest, res: MedusaResponse): Promise<void> {
   const logger = req.scope.resolve(ContainerRegistrationKeys.LOGGER);
   const query = req.scope.resolve(ContainerRegistrationKeys.QUERY);
-  const files = (req as unknown as { files?: Record<string, { buffer: Buffer }[]> }).files;
 
-  const archive = files?.photos?.[0]?.buffer;
+  const archive = await readUpload(req, "photos");
   if (!archive) {
     res.status(400).json({ message: "Прикачете .zip архив със снимките." });
     return;

@@ -1,20 +1,37 @@
 import { defineMiddlewares } from "@medusajs/framework/http";
 import multer from "multer";
+import { mkdirSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 /**
  * File uploads for the bulk import screen.
  *
- * Held in memory rather than written to a temporary directory: the spreadsheet
- * is read once and thrown away, and a validation run that leaves files behind
- * would slowly fill the VPS with abandoned uploads nobody ever looks at.
+ * Written to disk rather than held in memory. Memory was the original choice —
+ * a spreadsheet is read once and thrown away, and files on disk are files
+ * somebody has to delete. Then the VPS turned out to be 2 GB: a 200 MB archive
+ * held by multer, plus the same archive again inside JSZip, on top of the
+ * ~970 MB the stack already uses, is a backend killed mid-upload while
+ * customers are on the site. The routes delete what they read in a `finally`.
  *
- * The limit is generous because a zip of product photography legitimately runs
- * to tens of megabytes, and refusing a real day's upload with a size error is
- * a worse failure than holding it briefly.
+ * The cap is 150 MB, and it is measured rather than guessed. `check-upload-
+ * memory.ts` zips the shop's own 476 photographs — 88.6 MB — and reads them
+ * back the way these routes do. It costs roughly one copy of the archive
+ * rather than two, which is what moving to disk bought. The exact figure moves
+ * between runs depending on when the collector last ran, so the check asserts
+ * the shape (one copy, not two) rather than a number. At the cap that is about
+ * 150 MB on top of the ~970 MB the stack uses: comfortable inside 2 GB.
+ *
+ * 80 MB was the first attempt and the check refused the shop's own catalogue
+ * by 8.6 MB. JPEGs do not compress, so a zip of photographs is the size of the
+ * photographs — an obvious thing that was wrong in a comment for an hour.
  */
+const UPLOAD_DIR = join(tmpdir(), "redpoint-uploads");
+mkdirSync(UPLOAD_DIR, { recursive: true });
+
 const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 200 * 1024 * 1024, files: 2 },
+  storage: multer.diskStorage({ destination: UPLOAD_DIR }),
+  limits: { fileSize: 150 * 1024 * 1024, files: 2 },
 });
 
 export default defineMiddlewares({
