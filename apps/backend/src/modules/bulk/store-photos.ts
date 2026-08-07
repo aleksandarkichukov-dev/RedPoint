@@ -22,6 +22,54 @@ export interface StoredPhoto {
   url: string;
 }
 
+/**
+ * One path segment, guaranteed to stay one path segment.
+ *
+ * The article and colour come out of a file name inside an uploaded zip, and
+ * `parsePhotoName` reads them as `(.+)_(.+)_(\d+)` — which happily matches
+ * `.._.._1.jpg`. Interpolated into `products/{sku}/{colour}/{n}` that walks out
+ * of the upload directory and writes beside the running application.
+ *
+ * Whoever uploads has to be signed into the admin already, so this is not the
+ * front door. It is still the difference between a bad archive corrupting its
+ * own folder and a bad archive writing wherever it likes, and one function
+ * closes it. Everything a real colour name contains, Cyrillic included, stays.
+ */
+function safeSegment(value: string): string {
+  const cleaned = Array.from(value)
+    /* Compared by code point, not against character literals. A control
+       character written into a literal is invisible in a diff, and this is
+       the line holding the directory shut: it has to be readable to be
+       reviewable. */
+    .filter((character) => {
+      const code = character.codePointAt(0) ?? 0;
+      return code > 31 && code !== 127;
+    })
+    .join("")
+    .replace(/[\\/]/g, "-")
+    .trim();
+
+  /* A segment of nothing but dots is the whole trick, so it is refused as a
+     unit rather than having its dots stripped — `.` and `..` both name a
+     directory, while a colour called `1.2` is fine and has to survive. */
+  if (cleaned.length === 0 || /^\.+$/.test(cleaned)) return "неозначено";
+  return cleaned.slice(0, 100);
+}
+
+/**
+ * Where one photograph is stored.
+ *
+ * Split out from the upload so it can be checked on its own, without a
+ * database or a zip file. `check-photo-paths.ts` is what proves the guard
+ * above still holds after somebody edits it.
+ */
+export function photoPath(
+  parsed: { sku: string; color: string; index: number },
+  fileName: string,
+): string {
+  return `products/${safeSegment(parsed.sku)}/${safeSegment(parsed.color)}/${parsed.index}${extension(fileName)}`;
+}
+
 export async function storePhotos(
   container: MedusaContainer,
   photos: ArchivePhoto[],
@@ -36,7 +84,7 @@ export async function storePhotos(
     const content = await photo.read();
     const [file] = await fileModule.createFiles([
       {
-        filename: `products/${parsed.sku}/${parsed.color}/${parsed.index}${extension(photo.fileName)}`,
+        filename: photoPath(parsed, photo.fileName),
         mimeType: mimeType(photo.fileName),
         content: content.toString("binary"),
       },
