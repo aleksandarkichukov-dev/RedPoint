@@ -4,6 +4,7 @@ loadEnv(process.env.NODE_ENV || "development", process.cwd());
 
 const REDIS_URL = process.env.REDIS_URL;
 const BACKEND_URL = process.env.MEDUSA_BACKEND_URL || "http://localhost:9000";
+const STOREFRONT_URL = process.env.STOREFRONT_URL || "http://localhost:3000";
 
 /**
  * Redis-backed modules are only registered when REDIS_URL is set.
@@ -95,6 +96,52 @@ function emailProvider() {
   };
 }
 
+/**
+ * "Влез с Google", when there is a Google to log in with.
+ *
+ * The client has to create the credentials themselves in Google Cloud Console
+ * — an OAuth client for a web application, with the callback below listed as
+ * an authorised redirect URI. There is no way to do that on their behalf and
+ * no default that could stand in for it.
+ *
+ * Registered only when both halves are present. A provider without credentials
+ * loads happily and then fails at the moment a customer presses the button,
+ * which is the worst place for it to be discovered; absent, the storefront
+ * simply does not offer it.
+ *
+ * The callback URL must match what is registered with Google character for
+ * character, including the scheme. A mismatch there is Google's redirect_uri_
+ * mismatch error, which arrives on Google's own page rather than ours.
+ */
+function googleProvider() {
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+
+  if (!clientId || !clientSecret) {
+    if (clientId || clientSecret) {
+      console.warn(
+        "[auth] GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET must both be set. " +
+          "Google sign-in stays off until they are.",
+      );
+    }
+    return [];
+  }
+
+  return [
+    {
+      resolve: "@medusajs/medusa/auth-google",
+      id: "google",
+      options: {
+        clientId,
+        clientSecret,
+        callbackUrl:
+          process.env.GOOGLE_CALLBACK_URL ??
+          `${STOREFRONT_URL}/account/google/callback`,
+      },
+    },
+  ];
+}
+
 module.exports = defineConfig({
   projectConfig: {
     databaseUrl: process.env.DATABASE_URL,
@@ -147,6 +194,24 @@ module.exports = defineConfig({
       resolve: "@medusajs/medusa/notification",
       options: {
         providers: [emailProvider()],
+      },
+    },
+    {
+      /* Customer accounts.
+
+         Email and password always; Google only when it has been given
+         credentials, the same way email only sends when it has a key. A
+         provider registered without them fails at the moment somebody presses
+         the button, which is the worst place to find out. */
+      resolve: "@medusajs/medusa/auth",
+      options: {
+        providers: [
+          {
+            resolve: "@medusajs/medusa/auth-emailpass",
+            id: "emailpass",
+          },
+          ...googleProvider(),
+        ],
       },
     },
     ...redisModules,

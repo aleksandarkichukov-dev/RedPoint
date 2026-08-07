@@ -53,6 +53,10 @@ export class MedusaError extends Error {
 export async function medusaFetch<T>(
   path: string,
   params: Record<string, string | number | string[] | undefined> = {},
+  /* A logged-in customer's token. Anything read with one is that person's own
+     data, so it is never cached — the catalogue revalidation below would serve
+     one shopper's orders to the next. */
+  auth?: { token: string },
 ): Promise<T> {
   const url = new URL(path, BACKEND_URL);
   for (const [key, value] of Object.entries(params)) {
@@ -69,8 +73,11 @@ export async function medusaFetch<T>(
     headers: {
       "x-publishable-api-key": PUBLISHABLE_KEY,
       accept: "application/json",
+      ...(auth ? { authorization: `Bearer ${auth.token}` } : {}),
     },
-    next: { revalidate: CATALOGUE_REVALIDATE_SECONDS },
+    ...(auth
+      ? { cache: "no-store" as const }
+      : { next: { revalidate: CATALOGUE_REVALIDATE_SECONDS } }),
   });
 
   if (!response.ok) {
@@ -99,6 +106,7 @@ export async function medusaMutate<T>(
     body?: unknown;
     query?: Record<string, string | number | undefined>;
   } = {},
+  auth?: { token: string },
 ): Promise<T> {
   const url = new URL(path, BACKEND_URL);
   for (const [key, value] of Object.entries(options.query ?? {})) {
@@ -111,6 +119,7 @@ export async function medusaMutate<T>(
       "x-publishable-api-key": PUBLISHABLE_KEY,
       "content-type": "application/json",
       accept: "application/json",
+      ...(auth ? { authorization: `Bearer ${auth.token}` } : {}),
     },
     body: options.body === undefined ? undefined : JSON.stringify(options.body),
     cache: "no-store",

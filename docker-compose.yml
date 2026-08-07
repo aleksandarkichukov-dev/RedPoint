@@ -105,6 +105,11 @@ services:
       SENDGRID_API_KEY: ${SENDGRID_API_KEY:-}
       SENDGRID_FROM: ${SENDGRID_FROM:-}
       STOREFRONT_URL: ${STOREFRONT_URL:-}
+      # Google sign-in, registered only when both are present. Absent, the shop
+      # offers email and password and never shows a button that cannot work.
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GOOGLE_CALLBACK_URL: ${GOOGLE_CALLBACK_URL:-}
       # Couriers and payment. Passed through rather than defaulted, so a
       # missing one fails where it is used with the provider's own message
       # rather than silently behaving like a different shop.
@@ -156,6 +161,9 @@ services:
       # which matters because this server cannot build.
       MEDUSA_PUBLISHABLE_KEY: ${MEDUSA_PUBLISHABLE_KEY:?printed by the seed}
       SITE_URL: ${SITE_URL:-https://redpointbg.com}
+      # The storefront only needs to know WHETHER Google is configured, to
+      # decide whether to show the button. The secret stays on the backend.
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       # Off unless explicitly "on". Checkout offers cash on delivery only while
       # myPOS is unproven, and the server refuses a card order even if the
       # browser sends one.

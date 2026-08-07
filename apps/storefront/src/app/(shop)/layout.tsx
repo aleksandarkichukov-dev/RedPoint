@@ -2,6 +2,7 @@ import { ChatPanel } from "@/components/chat/chat-panel";
 import { BackLink } from "@/components/layout/back-link";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
+import { getCustomer } from "@/lib/customer";
 
 /**
  * Shell for every catalogue page.
@@ -10,10 +11,15 @@ import { SiteHeader } from "@/components/layout/site-header";
  * hero. Content starts below it rather than under it, so nothing important is
  * hidden behind a fixed bar.
  */
-export default function ShopLayout({ children }: { children: React.ReactNode }) {
+export default async function ShopLayout({ children }: { children: React.ReactNode }) {
+  /* Read here rather than in the header, which is a client component and
+     cannot ask. Nobody being logged in is the common case and costs a single
+     cookie check that returns null. */
+  const customer = await getCustomer();
+
   return (
     <>
-      <SiteHeader />
+      <SiteHeader customerName={customer?.firstName ?? null} />
       {/* Matches the fixed bar's height exactly; if the two drift, the first
           heading on every catalogue page hides behind it. */}
       <main className="pt-16 md:pt-20">

@@ -14,6 +14,9 @@ export interface SiteHeaderProps {
   /** True on pages whose first section is full-bleed imagery, so the bar sits
    *  transparently on top of it until the user scrolls. */
   overlay?: boolean;
+  /** Whoever is logged in, read on the server. The drawer greets them by name
+   *  and offers the account instead of the login. Null when nobody is. */
+  customerName?: string | null;
 }
 
 /**
@@ -23,7 +26,7 @@ export interface SiteHeaderProps {
  * two navigations to maintain and the desktop one unreachable by touch. One
  * drawer, opened by one button, is the same at every width.
  */
-export function SiteHeader({ overlay = false }: SiteHeaderProps) {
+export function SiteHeader({ overlay = false, customerName = null }: SiteHeaderProps) {
   const sentinel = useRef<HTMLDivElement>(null);
   const [atTop, setAtTop] = useState(overlay);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -160,12 +163,20 @@ export function SiteHeader({ overlay = false }: SiteHeaderProps) {
         </div>
       </header>
 
-      {menuOpen && <NavDrawer onClose={() => setMenuOpen(false)} />}
+      {menuOpen && (
+        <NavDrawer onClose={() => setMenuOpen(false)} customerName={customerName} />
+      )}
     </>
   );
 }
 
-function NavDrawer({ onClose }: { onClose: () => void }) {
+function NavDrawer({
+  onClose,
+  customerName,
+}: {
+  onClose: () => void;
+  customerName: string | null;
+}) {
   // A drawer over the page is a modal surface: without this, Tab walks straight
   // out of it and into the page it is covering.
   const panel = useFocusTrap<HTMLDivElement>(true);
@@ -221,6 +232,48 @@ function NavDrawer({ onClose }: { onClose: () => void }) {
             />
           ))}
         </nav>
+
+        {/* The account, under the categories and separated from them.
+
+            Below rather than above on purpose: somebody opening this menu is
+            almost always going shopping, and the categories are what they came
+            for. The account is what they want on the trip after that one.
+
+            `mt-auto` pins it to the bottom of the drawer, so it sits in the
+            same place whether there are four categories or fourteen. */}
+        <div className="mt-auto flex flex-col border-t border-border p-4">
+          {customerName ? (
+            <>
+              <span className="px-1 pb-2 font-body text-body text-muted-text">
+                Здравейте, {customerName}
+              </span>
+              <Link
+                href="/account"
+                onClick={onClose}
+                className="block py-3 font-headline text-subhead font-bold tracking-[0.06em] uppercase"
+              >
+                Моят профил
+              </Link>
+            </>
+          ) : (
+            <>
+              <Link
+                href="/account/login"
+                onClick={onClose}
+                className="block py-3 font-headline text-subhead font-bold tracking-[0.06em] uppercase"
+              >
+                Вход
+              </Link>
+              <Link
+                href="/account/login"
+                onClick={onClose}
+                className="block py-3 font-body text-nav text-body-text"
+              >
+                Създай профил
+              </Link>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );
