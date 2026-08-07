@@ -1,5 +1,5 @@
 import { defineRouteConfig } from "@medusajs/admin-sdk";
-import { ArrowDownTray, CloudArrowUp } from "@medusajs/icons";
+import { ArrowDownTray, CloudArrowUp, XMarkMini } from "@medusajs/icons";
 import { Badge, Button, Container, Table, Text, toast } from "@medusajs/ui";
 import { useRef, useState } from "react";
 
@@ -41,13 +41,74 @@ interface ReviewResult {
   total?: number;
 }
 
+/**
+ * Fills in what a given endpoint does not send.
+ *
+ * The two review endpoints answer with different shapes: a spreadsheet review
+ * carries counts and orphaned variants, a photos-only review carries neither.
+ * Reading `orphanedVariants.length` off the second one threw, and a thrown
+ * render in the admin is a blank screen — so uploading a zip of photographs,
+ * which is the commonest thing this screen is asked to do, broke it.
+ *
+ * Normalising here rather than at each use, because the next field added to one
+ * endpoint and not the other would land exactly the same way.
+ */
+const normalise = (data: Partial<ReviewResult>): ReviewResult => ({
+  ...data,
+  issues: data.issues ?? [],
+  counts: data.counts ?? null,
+  orphanedVariants: data.orphanedVariants ?? [],
+  productCount: data.productCount ?? 0,
+  photoCount: data.photoCount ?? 0,
+  canImport: data.canImport ?? false,
+});
+
+/** Long lists are cut off here; the count is always reported in full. */
+const LIST_LIMIT = 25;
+
+/** An attached file, with a way to take it off again. */
+const Attached = ({
+  label,
+  empty,
+  file,
+  onClear,
+}: {
+  label: string;
+  empty: string;
+  file: File | null;
+  onClear: () => void;
+}) => (
+  <div className="flex items-center gap-1">
+    <Badge color={file ? "green" : "grey"}>{file ? `${label}: ${file.name}` : empty}</Badge>
+    {file && (
+      <Button
+        variant="transparent"
+        size="small"
+        aria-label={`Махни: ${file.name}`}
+        onClick={onClear}
+      >
+        <XMarkMini />
+      </Button>
+    )}
+  </div>
+);
+
 const BulkPage = () => {
   const [sheet, setSheet] = useState<File | null>(null);
   const [photos, setPhotos] = useState<File | null>(null);
   const [review, setReview] = useState<ReviewResult | null>(null);
-  const [busy, setBusy] = useState<"validate" | "import" | null>(null);
+  const [busy, setBusy] = useState<"validate" | "import" | "export" | null>(null);
   const [dragging, setDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  /* The input keeps the path of whatever was chosen last, and picking the same
+     path again fires no change event. Which is precisely the loop this screen
+     invites: export, fix one cell in Excel, save over it, pick it again — and
+     the screen would sit there having noticed nothing, with no error to
+     explain itself. Clearing after every pick keeps the same file pickable. */
+  const clearInput = () => {
+    if (inputRef.current) inputRef.current.value = "";
+  };
 
   /* Files are sorted by extension rather than by which input they landed in.
      Someone dropping two files should not have to think about order. */
@@ -59,11 +120,53 @@ const BulkPage = () => {
       else toast.error(`"${file.name}" не е .xlsx или .zip и беше пропуснат`);
     }
     setReview(null);
+    clearInput();
   };
 
   /* Photos with no spreadsheet is its own path, not a special case of the
      other one. Replacing a photograph should not require retyping a price. */
   const photosOnly = !sheet && photos !== null;
+
+  /**
+   * Downloads the catalogue.
+   *
+   * Fetched rather than opened in a tab. Building it reads every variant's
+   * stock, which takes a few seconds on a shop this size — long enough that a
+   * tab opening onto nothing reads as a broken button, and gets pressed again.
+   * And when it fails, a new tab shows the shop raw JSON; here the same failure
+   * is a sentence in Bulgarian, next to the button they just pressed.
+   */
+  const exportCatalogue = async () => {
+    setBusy("export");
+    try {
+      const response = await fetch("/admin/bulk/export", { credentials: "include" });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        toast.error(data.message ?? "Каталогът не можа да бъде свален.");
+        return;
+      }
+
+      /* The server names the file with today's date, and that name is the
+         point: the shop ends up with several of these and the useful question
+         is always which one is from before the prices changed. */
+      const disposition = response.headers.get("content-disposition") ?? "";
+      const named = /filename="([^"]+)"/.exec(disposition)?.[1];
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = named ?? "red-point.xlsx";
+      link.click();
+      URL.revokeObjectURL(url);
+
+      toast.success("Каталогът е свален.");
+    } catch {
+      toast.error("Връзката със сървъра прекъсна. Опитайте отново.");
+    } finally {
+      setBusy(null);
+    }
+  };
 
   const send = async (path: "validate" | "import") => {
     if (!sheet && !photosOnly) return;
@@ -87,7 +190,7 @@ const BulkPage = () => {
 
       if (!response.ok) {
         toast.error(data.message ?? "Нещо се обърка.");
-        if (data.issues) setReview({ ...data, canImport: false });
+        if (data.issues) setReview(normalise({ ...data, canImport: false }));
         return;
       }
 
@@ -103,10 +206,11 @@ const BulkPage = () => {
         setReview(null);
         setSheet(null);
         setPhotos(null);
+        clearInput();
         return;
       }
 
-      setReview(data);
+      setReview(normalise(data));
     } catch (error) {
       toast.error("Връзката със сървъра прекъсна. Опитайте отново.");
       console.error(error);
@@ -133,7 +237,13 @@ const BulkPage = () => {
       </div>
 
       <div className="px-6 py-4">
-        <div
+        {/* A label, not a div with an onClick. The click handler worked with a
+            mouse and left the file picker unreachable by keyboard entirely:
+            the div could not be focused and the input was `hidden`, which
+            removes it from the tab order too. A label opens its own input on
+            click and on Enter, with no handler at all, and the input keeps its
+            place in the tab order while staying out of sight. */}
+        <label
           onDragOver={(event) => {
             event.preventDefault();
             setDragging(true);
@@ -144,8 +254,11 @@ const BulkPage = () => {
             setDragging(false);
             accept(event.dataTransfer.files);
           }}
-          onClick={() => inputRef.current?.click()}
-          className={`flex cursor-pointer flex-col items-center gap-2 border border-dashed p-8 text-center ${
+          /* The focus ring is an outline in currentColor rather than a themed
+             ring utility, so it is drawn whether or not the admin's Tailwind
+             build happens to generate that colour for this file. A focus
+             indicator that silently does not render is the same as none. */
+          className={`flex cursor-pointer flex-col items-center gap-2 border border-dashed p-8 text-center focus-within:border-ui-fg-base focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 ${
             dragging ? "border-ui-fg-base bg-ui-bg-base-hover" : "border-ui-border-base"
           }`}
         >
@@ -159,31 +272,50 @@ const BulkPage = () => {
             type="file"
             multiple
             accept=".xlsx,.zip"
-            className="hidden"
+            aria-label="Изберете таблица .xlsx и/или архив .zip със снимки"
+            className="sr-only"
             onChange={(event) => accept(event.target.files)}
           />
-        </div>
+        </label>
 
         <div className="mt-4 flex flex-wrap items-center gap-3">
-          <Badge color={sheet ? "green" : "grey"}>
-            {sheet ? `Таблица: ${sheet.name}` : "Няма таблица"}
-          </Badge>
-          <Badge color={photos ? "green" : "grey"}>
-            {photos ? `Снимки: ${photos.name}` : "Няма архив със снимки"}
-          </Badge>
+          {/* Attached files can be taken off again. Without this, a zip dropped
+              by mistake could not be removed at all — the only way out was to
+              reload the page, and the shop had no reason to guess that. */}
+          <Attached
+            label="Таблица"
+            empty="Няма таблица"
+            file={sheet}
+            onClear={() => {
+              setSheet(null);
+              setReview(null);
+            }}
+          />
+          <Attached
+            label="Снимки"
+            empty="Няма архив със снимки"
+            file={photos}
+            onClear={() => {
+              setPhotos(null);
+              setReview(null);
+            }}
+          />
 
           <div className="ml-auto flex gap-2">
             {/* The catalogue first: it is the one somebody reaches for daily,
                 and the template is what they need once. */}
             <Button
               variant="secondary"
-              onClick={() => window.open("/admin/bulk/export", "_blank")}
+              disabled={busy !== null}
+              isLoading={busy === "export"}
+              onClick={exportCatalogue}
             >
               <ArrowDownTray />
               Свали каталога
             </Button>
             <Button
               variant="transparent"
+              disabled={busy !== null}
               onClick={() => window.open("/admin/bulk/template", "_blank")}
             >
               Празен шаблон
@@ -217,11 +349,16 @@ const BulkPage = () => {
                   ? `Готови за качване: ${review.total} снимки на ${review.articles.length} артикула`
                   : "Нито една снимка не съответства на артикул в магазина."}
               </Text>
-              {review.articles.map((article) => (
+              {review.articles.slice(0, LIST_LIMIT).map((article) => (
                 <Text key={article.sku} size="small" className="text-ui-fg-subtle">
                   {article.sku} · {article.title} — {article.colors.join(", ")} ({article.photoCount} снимки)
                 </Text>
               ))}
+              {review.articles.length > LIST_LIMIT && (
+                <Text size="small" className="text-ui-fg-subtle">
+                  … и още {review.articles.length - LIST_LIMIT} артикула
+                </Text>
+              )}
               <Text size="small" className="text-ui-fg-subtle">
                 Старите снимки на тези артикули ще бъдат заменени.
               </Text>
@@ -254,7 +391,11 @@ const BulkPage = () => {
                 </Table.Row>
               </Table.Header>
               <Table.Body>
-                {rowIssues.map((issue, index) => (
+                {/* Cut off, because a file with the columns in the wrong order
+                    produces an error on every row, and eight hundred rows of
+                    the same sentence buries the one line that says which
+                    column. The count above is always the true one. */}
+                {rowIssues.slice(0, LIST_LIMIT).map((issue, index) => (
                   <Table.Row key={`${issue.row}-${index}`}>
                     <Table.Cell>{issue.row}</Table.Cell>
                     <Table.Cell>{issue.column ?? "—"}</Table.Cell>
@@ -265,16 +406,28 @@ const BulkPage = () => {
             </Table>
           )}
 
+          {rowIssues.length > LIST_LIMIT && (
+            <Text size="small" className="text-ui-fg-subtle">
+              Показани са първите {LIST_LIMIT} от {rowIssues.length}. Поправете
+              тези и проверете пак — обикновено останалите са същата грешка.
+            </Text>
+          )}
+
           {/* Photo problems do not block the import — a missing photo is worth
               knowing about, but it is not a reason to refuse a stock update. */}
           {fileIssues.length > 0 && (
             <div className="flex flex-col gap-1">
               <Text weight="plus">Забележки за снимките</Text>
-              {fileIssues.map((issue, index) => (
+              {fileIssues.slice(0, LIST_LIMIT).map((issue, index) => (
                 <Text key={index} size="small" className="text-ui-fg-subtle">
                   {issue.message}
                 </Text>
               ))}
+              {fileIssues.length > LIST_LIMIT && (
+                <Text size="small" className="text-ui-fg-subtle">
+                  … и още {fileIssues.length - LIST_LIMIT}
+                </Text>
+              )}
             </div>
           )}
 
@@ -287,11 +440,16 @@ const BulkPage = () => {
                 Няма да бъдат изтрити. Ако наистина ги спирате, направете го
                 ръчно от списъка с артикули.
               </Text>
-              {review.orphanedVariants.map((variant) => (
+              {review.orphanedVariants.slice(0, LIST_LIMIT).map((variant) => (
                 <Text key={variant.sku} size="small" className="text-ui-fg-subtle">
                   {variant.sku}
                 </Text>
               ))}
+              {review.orphanedVariants.length > LIST_LIMIT && (
+                <Text size="small" className="text-ui-fg-subtle">
+                  … и още {review.orphanedVariants.length - LIST_LIMIT}
+                </Text>
+              )}
             </div>
           )}
         </div>
