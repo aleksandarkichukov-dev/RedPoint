@@ -46,6 +46,31 @@ function oldUrlRedirects() {
   ];
 }
 
+/**
+ * The shop's own domain, as an image host.
+ *
+ * Product photography is served by Medusa from /static on this same domain, so
+ * whatever SITE_URL says is where the pictures come from. Empty when SITE_URL
+ * is unset, which is the development case that the localhost entry covers.
+ */
+function siteImageHost() {
+  const url = process.env.SITE_URL ?? process.env.NEXT_PUBLIC_SITE_URL;
+  if (!url) return [];
+
+  try {
+    const { protocol, hostname, port } = new URL(url);
+    return [
+      {
+        protocol: protocol.replace(":", "") as "http" | "https",
+        hostname,
+        ...(port ? { port } : {}),
+      },
+    ];
+  } catch {
+    return [];
+  }
+}
+
 const nextConfig: NextConfig = {
   /* A self-contained server plus only the files it actually imports, instead of
      the whole workspace and its node_modules. The runtime image drops from
@@ -71,13 +96,22 @@ const nextConfig: NextConfig = {
   // The design-system package ships raw CSS from the workspace.
   transpilePackages: ["@redpoint/design-system"],
   images: {
+    /* Next refuses to optimise an image from a host that is not listed here,
+       with a bare 400 and nothing in any log that names the host. On the first
+       deploy every product photograph came back 400 while the same file served
+       fine from /static — because the list said localhost:9000 and the shop had
+       moved to redpointbg.com.
+
+       So the site's own host is derived rather than written down. It follows
+       SITE_URL, which is the same variable the sitemap and the canonical tags
+       use, and cannot fall out of step with the domain the shop is on. */
     remotePatterns: [
-      // Product photography, served by Medusa's local file provider. On the VPS
-      // this becomes the real host or an object-storage domain.
-      { protocol: "http", hostname: "localhost", port: "9000" },
+      ...siteImageHost(),
+      // The local file provider during development.
+      { protocol: "http" as const, hostname: "localhost", port: "9000" },
       // Placeholder photography for the design-system gallery and the editorial
       // parts of the home page that have no product behind them.
-      { protocol: "https", hostname: "picsum.photos" },
+      { protocol: "https" as const, hostname: "picsum.photos" },
     ],
   },
 };
