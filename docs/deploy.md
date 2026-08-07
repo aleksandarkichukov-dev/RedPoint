@@ -1,7 +1,13 @@
 # Deploying Red Point
 
-The server is a SuperHosting Cloud VPS C2-R2-D60: two cores, **2 GB of RAM**,
-60 GB NVMe, Ubuntu 24.04. That one number decides most of what follows.
+The server is a Cloud VPS C2-R2-D60: two cores, **2 GB of RAM**, 60 GB NVMe,
+Ubuntu 24.04. That one number decides most of what follows.
+
+**Carried out on 7 August 2026** at 185.52.207.221, hostname
+`vps.redpointbg.com`, and this file has been corrected to match what actually
+happened rather than what was expected. Four steps below were wrong the first
+time: the SSL mode, the seed's filename, where the seed looks for the
+catalogue, and the image optimiser's host list. Each is marked.
 
 ## The rule that shapes everything
 
@@ -16,6 +22,11 @@ otherwise be discovered at the worst moment:
   time, not build time. Both used to carry a `NEXT_PUBLIC_` prefix, which Next
   compiles into the bundle — and the publishable key is precisely the thing
   that changes at go-live. A rebuild for a changed key is not available here.
+- `SITE_URL` is the one exception and must be passed as a **build argument**.
+  Next reads `next.config.ts` when it builds, so the list of hosts its image
+  optimiser will fetch from is fixed in the bundle. Get it wrong and every
+  product photograph is a bare 400 while the same file downloads fine from
+  `/static`, with nothing in any log naming the host.
 - Medusa runs as one process (`MEDUSA_WORKER_MODE=shared`). It is ~750 MB per
   process, and the brief's separate API and worker containers would need
   ~1.9 GB before anything else started.
@@ -116,18 +127,52 @@ than twice.
 
 ### 5. Database and seed
 
+`DATABASE_URL` must end in `?sslmode=disable`. Without it the migration hangs
+and then reports "Could not connect to the database… which usually indicates an
+incorrect database URL or an SSL configuration issue" — while a raw `pg`
+connection with the same URL succeeds instantly. Medusa attempts SSL in
+production and Postgres inside the compose network does not speak it, so the
+handshake never completes and never errors. Between containers on a private
+network there is nothing for SSL to protect; if the database ever moves to a
+managed service on another host, this has to come back.
+
 Data services first, then migrate, then seed. Migrations are run explicitly so
 a restart loop can never half-apply a schema change:
 
 ```bash
 docker compose up -d postgres redis
 docker compose --profile full run --rm backend npx medusa db:migrate
-docker compose --profile full run --rm backend npm run seed
 ```
 
+The seed needs the catalogue, which is not in the repository — `seed/` is
+gitignored because it is the client's photography. Copy it up and mount it
+where the built image looks for it, which is not where the repository keeps it:
+the script resolves two directories above the working directory, and in the
+image that working directory is `.medusa/server`.
+
+```bash
+# from a machine that has it
+tar -czf seed-data.tar.gz seed/products.json seed/images
+scp seed-data.tar.gz redpoint@<ip>:/tmp/
+```
+
+```bash
+mkdir -p /srv/redpoint/apps/backend/seed
+tar -xzf /tmp/seed-data.tar.gz -C /tmp && mv /tmp/seed/* /srv/redpoint/apps/backend/seed/
+
+docker compose --profile full run --rm \
+  -v /srv/redpoint/apps/backend/seed:/app/apps/backend/seed:ro \
+  backend npx medusa exec ./src/scripts/seed.js
+```
+
+Note `seed.js`, not `npm run seed`. That script runs `seed.ts`, and the image
+contains the compiled output — the `.ts` file is not there and the error says
+only that the file does not exist.
+
 **The seed prints a publishable key.** Put it in `.env` as
-`MEDUSA_PUBLISHABLE_KEY` before starting the storefront, or every catalogue
-read answers 401 and the shop renders empty with no error.
+`MEDUSA_PUBLISHABLE_KEY` and restart the storefront, or every catalogue read
+answers 401 and the shop renders empty with no error. It is read at run time,
+so this is a restart and not a rebuild.
 
 Create the admin user — this is the one command whose password goes in by hand:
 
@@ -194,7 +239,12 @@ docker compose --profile full up -d
 - **The shop is empty and nothing errors.** Wrong or missing publishable key.
 - **A confirmation email never arrives.** With `SENDGRID_API_KEY` and
   `SENDGRID_FROM` unset the backend writes messages to the log instead of
-  sending them, and says so at boot. `check-order-email.ts` proves the chain.
+  sending them, and says so at boot. `check-order-email.js` proves the chain,
+  and needs an order in the database to build a real message from.
+- **`docker compose up postgres` refuses to start anything.** Compose
+  interpolates the whole file before it runs, so a `:?` on any variable stops
+  every service. Nothing in the committed file does this now; do not add one
+  for a value that is only known after the database is up.
 
 ## What is not done
 
